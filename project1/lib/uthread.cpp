@@ -30,9 +30,14 @@ typedef struct join_queue_entry {
 //   Example join and finished queue entry types are provided above
 
 // Queues
-static deque<TCB *> ready_queue;
+static std::deque<TCB *> ready_queue;
 
+// Global variables
+static sigset_t oset = 0;
+static TCB *main_thread;
 static int tid_num = 0;
+static int quantum = -1;
+static struct itimerval itimer;
 
 static TCB *current_thread;
 
@@ -42,18 +47,41 @@ static TCB *current_thread;
 static void startInterruptTimer() {
 <<<<<<< Updated upstream
   // TODO
+=======
+    setitimer(ITIMER_VIRTUAL, &itimer, NULL);
+>>>>>>> Stashed changes
 }
 
 // Block signals from firing timer interrupt
 static void disableInterrupts() {
 <<<<<<< Updated upstream
   // TODO
+=======
+    sigset_t set;
+    // Set mask to block all signals
+    if (sigfillset(&set) != 0) {
+        perror("sigfillset");
+        // rip
+    }
+    // Install signal mask and save old mask
+    if (sigprocmask(SIG_SETMASK, &set, &oset) != 0) {
+        perror("sigprocmask");
+        // rip
+    }
+>>>>>>> Stashed changes
 }
 
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
 <<<<<<< Updated upstream
   // TODO
+=======
+    // Unblock signals
+    if (sigprocmask(SIG_SETMASK, &oset, NULL) != 0) {
+        perror("sigprocmask");
+        // rip
+    }
+>>>>>>> Stashed changes
 }
 
 // Queue Management ------------------------------------------------------------
@@ -122,6 +150,50 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
   int tid = tid_num++; // idk lol
   TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
   addToReadyQueue(tcb);
+=======
+    // Initialize any data structures
+    // Setup timer interrupt and handler
+    // Create a thread for the caller (main) thread
+    disableInterrupts();
+
+    // Create TCB for main thread
+    main_thread = new TCB(tid_num++, GREEN, READY);
+
+    // Initialize itimer data sturcture
+    itimer.it_interval.tv_usec = quantum_usecs;
+
+    // Set up signal handler for SIGVTALRM
+    struct sigaction sac;
+    if (sigfillset(&sac.sa_mask) != 0) {
+        perror("sigfillset");
+        return -1;
+    }
+    sac.sa_flags = 0;
+    sac.sa_handler = handle_alrm;
+    if (sigaction(SIGVTALRM, sactm NULL) != 0) {
+        perror("sigaction");
+        return -1;
+    }
+
+    enableInterrupts();
+
+    return 0;
+}
+
+int uthread_create(void *(*start_routine)(void *), void *arg) {
+    // Create a new thread and add it to the ready queue
+
+    disableInterrupts();
+
+    int tid = tid_num++;
+
+    TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
+
+    addToReadyQueue(tcb);
+
+    enableInterrupts();
+    return tid;
+>>>>>>> Stashed changes
 }
 
 int uthread_join(int tid, void **retval) {
