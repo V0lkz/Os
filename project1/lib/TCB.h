@@ -1,5 +1,5 @@
 /*
- *
+ * Thread Control Block Header
  */
 #ifndef TCB_H
 #define TCB_H
@@ -28,7 +28,7 @@ enum State {
  * The thread
  */
 class TCB {
-   public:
+public:
     /**
      * Constructor for TCB. Allocate a thread stack and setup the thread
      * context to call the stub function
@@ -91,12 +91,12 @@ class TCB {
      */
     void loadContext();
 
-   private:
-    int _tid;               // The thread id number.
-    Priority _pr;           // The priority of the thread (Red, orange or green)
-    int _quantum;           // The time interval, as explained in the pdf.
-    State _state;           // The state of the thread
-    char *_stack;           // The thread's stack
+private:
+    int _tid;    // The thread id number.
+    Priority _pr;    // The priority of the thread (Red, orange or green)
+    int _quantum;    // The time interval, as explained in the pdf.
+    State _state;    // The state of the thread
+    char *_stack;    // The thread's stack
     ucontext_t _context;    // The thread's saved context
 };
 

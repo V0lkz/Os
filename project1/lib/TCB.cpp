@@ -2,8 +2,10 @@
 
 #include <ucontext.h>
 
+TCB::TCB(int tid, Priority pr, State state) : _tid(tid), _pr(pr), _state(state) {}
+
 TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, State state)
-    : _tid(tid), _pr(pr), _quantum(-1), _state(state) {
+    : _tid(tid), _pr(pr), _quantum(0), _state(state) {
     // Make new context
     if (getcontext(&_context) != 0) {
         perror("getcontext");
@@ -15,6 +17,12 @@ TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, Sta
     _context.uc_stack.ss_flags = 0;
     // Setup thread's stack
     _stack = _context.uc_stack.ss_sp + STACK_SIZE;
+    // Push function and args onto stack
+    *(_stack) = start_routine;
+    _stack -= sizeof(void *);
+    *(_stack) = arg;
+    _stack -= sizeof(void *);
+    // Call make context
     makecontext(&_context, (void (*)()) stub, 2, start_routine, arg);
 }
 

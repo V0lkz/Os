@@ -40,16 +40,19 @@ static TCB *current_thread;
 
 // Start a countdown timer to fire an interrupt
 static void startInterruptTimer() {
+<<<<<<< Updated upstream
   // TODO
 }
 
 // Block signals from firing timer interrupt
 static void disableInterrupts() {
+<<<<<<< Updated upstream
   // TODO
 }
 
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
+<<<<<<< Updated upstream
   // TODO
 }
 
@@ -108,6 +111,7 @@ void stub(void *(*start_routine)(void *), void *arg) {
 }
 
 int uthread_init(int quantum_usecs) {
+<<<<<<< Updated upstream
   // Initialize any data structures
   // Setup timer interrupt and handler
   // Create a thread for the caller (main) thread
