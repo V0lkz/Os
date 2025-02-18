@@ -9,14 +9,14 @@ using namespace std;
 
 // Finished queue entry type
 typedef struct finished_queue_entry {
-  TCB *tcb;     // Pointer to TCB
-  void *result; // Pointer to thread result (output)
+    TCB *tcb;        // Pointer to TCB
+    void *result;    // Pointer to thread result (output)
 } finished_queue_entry_t;
 
 // Join queue entry type
 typedef struct join_queue_entry {
-  TCB *tcb;            // Pointer to TCB
-  int waiting_for_tid; // TID this thread is waiting on
+    TCB *tcb;               // Pointer to TCB
+    int waiting_for_tid;    // TID this thread is waiting on
 } join_queue_entry_t;
 
 // You will need to maintain structures to track the state of threads
@@ -45,18 +45,11 @@ static TCB *current_thread;
 
 // Start a countdown timer to fire an interrupt
 static void startInterruptTimer() {
-<<<<<<< Updated upstream
-  // TODO
-=======
     setitimer(ITIMER_VIRTUAL, &itimer, NULL);
->>>>>>> Stashed changes
 }
 
 // Block signals from firing timer interrupt
 static void disableInterrupts() {
-<<<<<<< Updated upstream
-  // TODO
-=======
     sigset_t set;
     // Set mask to block all signals
     if (sigfillset(&set) != 0) {
@@ -68,61 +61,57 @@ static void disableInterrupts() {
         perror("sigprocmask");
         // rip
     }
->>>>>>> Stashed changes
 }
 
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
-<<<<<<< Updated upstream
-  // TODO
-=======
     // Unblock signals
     if (sigprocmask(SIG_SETMASK, &oset, NULL) != 0) {
         perror("sigprocmask");
         // rip
     }
->>>>>>> Stashed changes
 }
 
 // Queue Management ------------------------------------------------------------
 
 // Add TCB to the back of the ready queue
-void addToReadyQueue(TCB *tcb) { ready_queue.push_back(tcb); }
+void addToReadyQueue(TCB *tcb) {
+    ready_queue.push_back(tcb);
+}
 
 // Removes and returns the first TCB on the ready queue
 // NOTE: Assumes at least one thread on the ready queue
 TCB *popFromReadyQueue() {
-  assert(!ready_queue.empty());
+    assert(!ready_queue.empty());
 
-  TCB *ready_queue_head = ready_queue.front();
-  ready_queue.pop_front();
-  return ready_queue_head;
+    TCB *ready_queue_head = ready_queue.front();
+    ready_queue.pop_front();
+    return ready_queue_head;
 }
 
 // Removes the thread specified by the TID provided from the ready queue
 // Returns 0 on success, and -1 on failure (thread not in ready queue)
 int removeFromReadyQueue(int tid) {
-  for (deque<TCB *>::iterator iter = ready_queue.begin();
-       iter != ready_queue.end(); ++iter) {
-    if (tid == (*iter)->getId()) {
-      ready_queue.erase(iter);
-      return 0;
+    for (deque<TCB *>::iterator iter = ready_queue.begin(); iter != ready_queue.end(); ++iter) {
+        if (tid == (*iter)->getId()) {
+            ready_queue.erase(iter);
+            return 0;
+        }
     }
-  }
-  // Thread not found
-  return -1;
+    // Thread not found
+    return -1;
 }
 
 // Helper functions ------------------------------------------------------------
 
 // Switch to the next ready thread
 static void switchThreads() {
-  volatile int flag = 0;
-  ucontext_t context;
-  current_thread->saveContext();
-  addToReadyQueue(current_thread);
-  current_thread = popFromReadyQueue();
-  current_thread->loadContext();
+    volatile int flag = 0;
+    ucontext_t context;
+    current_thread->saveContext();
+    addToReadyQueue(current_thread);
+    current_thread = popFromReadyQueue();
+    current_thread->loadContext();
 }
 
 // Library functions -----------------------------------------------------------
@@ -132,25 +121,13 @@ static void switchThreads() {
 
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
-  // Call start routine
-  *(start_routine)(arg);
-  // Call exit if start_routine did not
-  uthread_exit(0);
+    // Call start routine
+    *(start_routine) (arg);
+    // Call exit if start_routine did not
+    uthread_exit(0);
 }
 
 int uthread_init(int quantum_usecs) {
-<<<<<<< Updated upstream
-  // Initialize any data structures
-  // Setup timer interrupt and handler
-  // Create a thread for the caller (main) thread
-}
-
-int uthread_create(void *(*start_routine)(void *), void *arg) {
-  // Create a new thread and add it to the ready queue
-  int tid = tid_num++; // idk lol
-  TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
-  addToReadyQueue(tcb);
-=======
     // Initialize any data structures
     // Setup timer interrupt and handler
     // Create a thread for the caller (main) thread
@@ -182,77 +159,80 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
 
 int uthread_create(void *(*start_routine)(void *), void *arg) {
     // Create a new thread and add it to the ready queue
-
     disableInterrupts();
 
     int tid = tid_num++;
-
     TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
 
     addToReadyQueue(tcb);
 
     enableInterrupts();
     return tid;
->>>>>>> Stashed changes
 }
 
 int uthread_join(int tid, void **retval) {
-  // If the thread specified by tid is already terminated, just return
-  // If the thread specified by tid is still running, block until it terminates
-  // Set *retval to be the result of thread if retval != nullptr
+    // If the thread specified by tid is already terminated, just return
+    // If the thread specified by tid is still running, block until it terminates
+    // Set *retval to be the result of thread if retval != nullptr
+}
+
+int uthread_join(int tid, void **retval) {
+    // If the thread specified by tid is already terminated, just return
+    // If the thread specified by tid is still running, block until it terminates
+    // Set *retval to be the result of thread if retval != nullptr
 }
 
 int uthread_yield(void) {
-  TCB *chosenTCB, *finishTCB;
+    TCB *chosenTCB, *finishTCB;
 
-  disableInterrupts();
+    disableInterrupts();
 
-  chosenTCB = popFromReadyQueue();
-  if (chosenTCB == NULL) {
-    // No threads in queue;
-    enableInterrupts();
-    return -1;
-  } else {
-    current_thread->setState(READY);
-    addToReadyQueue(current_thread);
-    switchThreads();
-    current_thread->setState(RUNNING);
-    enableInterrupts();
-    // not sure
-    return current_thread->getId();
-  }
+    chosenTCB = popFromReadyQueue();
+    if (chosenTCB == NULL) {
+        // No threads in queue;
+        enableInterrupts();
+        return -1;
+    } else {
+        current_thread->setState(READY);
+        addToReadyQueue(current_thread);
+        switchThreads();
+        current_thread->setState(RUNNING);
+        enableInterrupts();
+        // not sure
+        return current_thread->getId();
+    }
 }
 
 void uthread_exit(void *retval) {
-  // If this is the main thread, exit the program
-  // Move any threads joined on this thread back to the ready queue
-  // Move this thread to the finished queue
+    // If this is the main thread, exit the program
+    // Move any threads joined on this thread back to the ready queue
+    // Move this thread to the finished queue
 }
 
 int uthread_suspend(int tid) {
-  // Move the thread specified by tid from whatever state it is
-  // in to the block queue
+    // Move the thread specified by tid from whatever state it is
+    // in to the block queue
 }
 
 int uthread_resume(int tid) {
-  // Move the thread specified by tid back to the ready queue
+    // Move the thread specified by tid back to the ready queue
 }
 
 int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
-  // Use the once_control structure to determine whether or not to execute
-  // the init_routine
-  // Pay attention to what needs to be accessed and modified in a critical
-  // region (critical meaning interrupts disabled)
+    // Use the once_control structure to determine whether or not to execute
+    // the init_routine
+    // Pay attention to what needs to be accessed and modified in a critical
+    // region (critical meaning interrupts disabled)
 }
 
 int uthread_self() {
-  // TODO
+    // TODO
 }
 
 int uthread_get_total_quantums() {
-  // TODO
+    // TODO
 }
 
 int uthread_get_quantums(int tid) {
-  // TODO
+    // TODO
 }
