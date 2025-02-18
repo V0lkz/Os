@@ -11,25 +11,22 @@
 #define MAX_THREAD_NUM 100 /* maximal number of threads */
 
 /* External interface */
-typedef enum Priority
-{
+typedef enum Priority {
     RED,
     ORANGE,
     GREEN
 } Priority;
 
-typedef enum
-{
+typedef enum {
     UTHREAD_ONCE_NOT_EXECUTED = 0,
     UTHREAD_ONCE_EXECUTED = 1
 } execution_status_t;
 
-typedef struct
-{
+typedef struct {
     execution_status_t execution_status;
 } uthread_once_t;
 
-#define UTHREAD_ONCE_INIT ((uthread_once_t){.execution_status = UTHREAD_ONCE_NOT_EXECUTED})
+#define UTHREAD_ONCE_INIT ((uthread_once_t) {.execution_status = UTHREAD_ONCE_NOT_EXECUTED})
 
 /* Initialize the thread library */
 // Return 0 on success, -1 on failure

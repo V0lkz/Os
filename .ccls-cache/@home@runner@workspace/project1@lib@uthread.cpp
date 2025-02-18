@@ -1,8 +1,9 @@
 #include "uthread.h"
-#include "TCB.h"
+
 #include <cassert>
 #include <deque>
-#include <time.h>
+
+#include "TCB.h"
 
 using namespace std;
 
@@ -30,6 +31,10 @@ typedef struct join_queue_entry {
 
 // Queues
 static deque<TCB *> ready_queue;
+
+static int tid_num = 0;
+
+static TCB *current_thread;
 
 // Interrupt Management --------------------------------------------------------
 
@@ -73,7 +78,6 @@ int removeFromReadyQueue(int tid) {
       return 0;
     }
   }
-
   // Thread not found
   return -1;
 }
@@ -82,7 +86,12 @@ int removeFromReadyQueue(int tid) {
 
 // Switch to the next ready thread
 static void switchThreads() {
-  // TODO
+  volatile int flag = 0;
+  ucontext_t context;
+  current_thread->saveContext();
+  addToReadyQueue(current_thread);
+  current_thread = popFromReadyQueue();
+  current_thread->loadContext();
 }
 
 // Library functions -----------------------------------------------------------
@@ -91,7 +100,12 @@ static void switchThreads() {
 // function must do
 
 // Starting point for thread. Calls top-level thread function
-void stub(void *(*start_routine)(void *), void *arg) {}
+void stub(void *(*start_routine)(void *), void *arg) {
+  // Call start routine
+  *(start_routine)(arg);
+  // Call exit if start_routine did not
+  uthread_exit(0);
+}
 
 int uthread_init(int quantum_usecs) {
   // Initialize any data structures
@@ -101,6 +115,9 @@ int uthread_init(int quantum_usecs) {
 
 int uthread_create(void *(*start_routine)(void *), void *arg) {
   // Create a new thread and add it to the ready queue
+  int tid = tid_num++; // idk lol
+  TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
+  addToReadyQueue(tcb);
 }
 
 int uthread_join(int tid, void **retval) {
@@ -111,15 +128,23 @@ int uthread_join(int tid, void **retval) {
 
 int uthread_yield(void) {
   TCB *chosenTCB, *finishTCB;
+
   disableInterrupts();
 
   chosenTCB = popFromReadyQueue();
-
-	if(chosenTCB == NULL){
-		return -1;
-	}else{
-		
-	}
+  if (chosenTCB == NULL) {
+    // No threads in queue;
+    enableInterrupts();
+    return -1;
+  } else {
+    current_thread->setState(READY);
+    addToReadyQueue(current_thread);
+    switchThreads();
+    current_thread->setState(RUNNING);
+    enableInterrupts();
+    // not sure
+    return current_thread->getId();
+  }
 }
 
 void uthread_exit(void *retval) {
@@ -145,7 +170,7 @@ int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
 }
 
 int uthread_self() {
-
+  // TODO
 }
 
 int uthread_get_total_quantums() {
