@@ -32,7 +32,7 @@ typedef struct join_queue_entry {
 // - Separate join and finished "queues" can also help when supporting joining.
 //   Example join and finished queue entry types are provided above
 
-/* -- Global Variables -- */
+// Global Variables  -----------------------------------------------------------
 
 // Queues
 static std::deque<TCB *> ready_queue;
@@ -43,14 +43,15 @@ static sigset_t block_set;
 
 // TCBs
 static TCB *main_thread;
-static int tid_num = 0;
+static int tid_num = 1;
 static int quantum = -1;
 
 static TCB *current_thread;
 
-/* -- Interrupt Management -- */
+// Interrupt Management --------------------------------------------------------
 
-static void handle_alrm(int signum) {
+// Signal handler for SIGVTALRM
+static void handle_vtalrm(int signum) {
     uthread_yield();
 }
 
@@ -71,13 +72,13 @@ static void disableInterrupts() {
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
     // Remove SIGVTALRM from current signal mask
-    if (sigprocmask(SIG_UNBLOCK, &unblock_set, NULL) != 0) {
+    if (sigprocmask(SIG_UNBLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
         // rip
     }
 }
 
-/* -- Queue Management -- */
+// Queue Management ------------------------------------------------------------
 
 // Add TCB to the back of the ready queue
 void addToReadyQueue(TCB *tcb) {
@@ -127,7 +128,7 @@ static void switchThreads() {
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
     // Call start routine
-    *(start_routine) (arg);
+    start_routine(arg);
     // Call exit if start_routine did not
     uthread_exit(0);
 }
@@ -143,8 +144,10 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
 
+    quantum = quantum_usecs;
+
     // Create TCB for main thread
-    main_thread = new TCB(tid_num++, GREEN, READY);
+    main_thread = new TCB(0, GREEN, NULL, NULL, READY);
 
     // Initialize itimer data sturcture
     itimer.it_interval.tv_usec = quantum_usecs;
@@ -156,7 +159,7 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
     sac.sa_flags = 0;
-    sac.sa_handler = handle_alrm;
+    sac.sa_handler = handle_vtalrm;
     // Install signal handler
     if (sigaction(SIGVTALRM, &sac, NULL) != 0) {
         perror("sigaction");
@@ -170,12 +173,13 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
     // Create a new thread and add it to the ready queue
     disableInterrupts();
 
+    // Create new TCB and add to ready queue
     int tid = tid_num++;
     TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
-
     addToReadyQueue(tcb);
 
     enableInterrupts();
+
     return tid;
 }
 
