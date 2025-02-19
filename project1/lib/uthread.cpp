@@ -114,11 +114,15 @@ int removeFromReadyQueue(int tid) {
 
 // Switch to the next ready thread
 static void switchThreads() {
-    if (current_thread->saveContext() == 0) {
-        addToReadyQueue(current_thread);
-        current_thread = popFromReadyQueue();
-        current_thread->loadContext();
+    // Save old thread context
+    if (current_thread->saveContext() != 0) {
+        perror("getcontext");
+        return;
     }
+
+    // Select new thread to run
+    current_thread = popFromReadyQueue();
+    current_thread->loadContext();
 }
 
 // Library functions -----------------------------------------------------------
@@ -225,25 +229,30 @@ int uthread_join(int tid, void **retval) {
 }
 
 int uthread_yield(void) {
-    TCB *chosenTCB;
+    // TCB *chosenTCB;
 
     disableInterrupts();
 
-    // Choose a TCB from ready queue
-    chosenTCB = popFromReadyQueue();
-    // Throws exception if empty so need to change later
-    if (chosenTCB == NULL) {
-        // No threads in queue
-        enableInterrupts();
-        return -1;
-    }
+    // // Choose a TCB from ready queue
+    // chosenTCB = popFromReadyQueue();
+    // // Throws exception if empty so need to change later
+    // // Shouldn't be empty because of main thread
+    // if (chosenTCB == NULL) {
+    //     // No threads in queue
+    //     enableInterrupts();
+    //     return -1;
+    // }
 
+    // Add current thread to ready queue
     current_thread->setState(READY);
     addToReadyQueue(current_thread);
 
+    // Switch to new thread
     switchThreads();
 
+    // New thread running
     current_thread->setState(RUNNING);
+
     enableInterrupts();
 
     return current_thread->getId();
@@ -253,7 +262,8 @@ void uthread_exit(void *retval) {
     // If this is the main thread, exit the program
     // Move any threads joined on this thread back to the ready queue
     // Move this thread to the finished queue
-    current_thread->setState(FINISH);
+
+    // current_thread->setState(FINISH);
     current_thread->setReturnValue(retval);
 }
 
