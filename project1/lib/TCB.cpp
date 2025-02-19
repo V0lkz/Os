@@ -59,3 +59,11 @@ int TCB::saveContext() {
 void TCB::loadContext() {
     setcontext(&_context);
 }
+
+void TCB::setReturnValue(void *retval) {
+    _retval = retval;
+}
+
+void TCB::getReturnValue() const {
+    return _retval;
+}

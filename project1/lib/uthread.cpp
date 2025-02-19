@@ -207,7 +207,7 @@ int uthread_join(int tid, void **retval) {
 
 
 int uthread_yield(void) {
-    TCB *chosenTCB, *finishTCB;
+    TCB *chosenTCB;
 
     disableInterrupts();
 
@@ -228,13 +228,15 @@ int uthread_yield(void) {
     current_thread->setState(RUNNING);
     enableInterrupts();
 
-    return 0;
+    return current_thread->getId();;
 }
 
 void uthread_exit(void *retval) {
     // If this is the main thread, exit the program
     // Move any threads joined on this thread back to the ready queue
     // Move this thread to the finished queue
+  current_thread->setState(FINISH);
+  current_thread->setReturnValue(retval);
 }
 
 int uthread_suspend(int tid) {
