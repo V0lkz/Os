@@ -31,9 +31,10 @@ typedef struct join_queue_entry {
 
 // Queues
 static std::deque<TCB *> ready_queue;
+static std::deque<TCB *> finish_queue;
 
 // Global variables
-static sigset_t oset = 0;
+static sigset_t oset;
 static TCB *main_thread;
 static int tid_num = 0;
 static int quantum = -1;
@@ -44,7 +45,7 @@ static TCB *current_thread;
 // Interrupt Management --------------------------------------------------------
 
 static void handle_alrm(int signum) {
-    uthread_yeild();
+    uthread_yield();
 }
 
 // Start a countdown timer to fire an interrupt
@@ -110,12 +111,11 @@ int removeFromReadyQueue(int tid) {
 
 // Switch to the next ready thread
 static void switchThreads() {
-    volatile int flag = 0;
-    ucontext_t context;
-    current_thread->saveContext();
+  if(current_thread->saveContext() == 0){
     addToReadyQueue(current_thread);
     current_thread = popFromReadyQueue();
     current_thread->loadContext();
+  }
 }
 
 // Library functions -----------------------------------------------------------
@@ -126,7 +126,7 @@ static void switchThreads() {
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
     // Call start routine
-    *(start_routine) (arg);
+    start_routine(arg);
     // Call exit if start_routine did not
     uthread_exit(0);
 }
@@ -141,7 +141,10 @@ int uthread_init(int quantum_usecs) {
     main_thread = new TCB(tid_num++, GREEN, READY);
 
     // Initialize itimer data sturcture
-    itimer.it_interval.tv_usec = quantum_usecs;
+    itimer.it_value.tv_sec = quantum_usecs / 1000000;
+    itimer.it_value.tv_usec = quantum_usecs % 1000000;
+    itimer.it_interval.tv_sec =  quantum_usecs / 1000000;
+    itimer.it_interval.tv_usec = quantum_usecs % 1000000;
 
     // Set up signal handler for SIGVTALRM
     struct sigaction sac;
@@ -151,7 +154,7 @@ int uthread_init(int quantum_usecs) {
     }
     sac.sa_flags = 0;
     sac.sa_handler = handle_alrm;
-    if (sigaction(SIGVTALRM, sactm NULL) != 0) {
+    if (sigaction(SIGVTALRM, &sac, NULL) != 0) {
         perror("sigaction");
         return -1;
     }
@@ -180,11 +183,6 @@ int uthread_join(int tid, void **retval) {
     // Set *retval to be the result of thread if retval != nullptr
 }
 
-int uthread_join(int tid, void **retval) {
-    // If the thread specified by tid is already terminated, just return
-    // If the thread specified by tid is still running, block until it terminates
-    // Set *retval to be the result of thread if retval != nullptr
-}
 
 int uthread_yield(void) {
     TCB *chosenTCB, *finishTCB;

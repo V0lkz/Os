@@ -1,6 +1,5 @@
 #ifndef _UTHREADS_H
 #define _UTHREADS_H
-
 /* From IBM OS 3.1.0 -z/OS C/C++ Runtime Library Reference */
 #ifdef _LP64
 #define STACK_SIZE 2097152 + 16384 /* large enough value for AMODE 64 */
