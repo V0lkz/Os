@@ -45,7 +45,7 @@ int TCB::getId() const {
 }
 
 void TCB::increaseQuantum() {
-    _quantum += quantum;
+    _quantum++;
 }
 
 int TCB::getQuantum() const {
@@ -61,9 +61,9 @@ void TCB::loadContext() {
 }
 
 void TCB::setReturnValue(void *retval) {
-    _retval = retval;
+    _ret_val = retval;
 }
 
-void TCB::getReturnValue() const {
-    return _retval;
+void *TCB::getReturnValue() const {
+    return _ret_val;
 }
