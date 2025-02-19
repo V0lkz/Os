@@ -90,14 +90,17 @@ public:
      * function that loads the thread's previously saved context
      */
     void loadContext();
-   
 
     /**
-     * function that set and get the reutnr value of the thread
+     * function that set and get the return value of the thread
      * @param retval the return value of the thread
-    */
+     */
     void setReturnValue(void *retval);
-    void getReturnValue() const;
+
+    /**
+     * function that get the return value of the thread
+     */
+    void *getReturnValue() const;
 
 private:
     int _tid;    // The thread id number.
@@ -106,6 +109,7 @@ private:
     State _state;    // The state of the thread
     char *_stack;    // The thread's stack
     ucontext_t _context;    // The thread's saved context
+    void *_ret_val;    // The thread's return value
     void *(*_start_routine)(void *arg);    // The thread's function
 };
 
