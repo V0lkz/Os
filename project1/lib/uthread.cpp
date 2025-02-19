@@ -243,6 +243,7 @@ int uthread_yield(void) {
 
     switchThreads();
 
+    startInterruptTimer();
     current_thread->setState(RUNNING);
     enableInterrupts();
 
