@@ -172,8 +172,15 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
     // Create a new thread and add it to the ready queue
     disableInterrupts();
 
-    // Create new TCB and add to ready queue
+    // Arbitrarily assign thread id
     int tid = tid_num++;
+    if (tid > MAX_THREAD_NUM) {
+        // Maximun number of threads reached
+        enableInterrupts();
+        return -1;
+    }
+
+    // Create new TCB and add to ready queue
     TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
     addToReadyQueue(tcb);
 
