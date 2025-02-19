@@ -127,10 +127,8 @@ static void switchThreads() {
 
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
-    // Call start routine
-    start_routine(arg);
-    // Call exit if start_routine did not
-    uthread_exit(0);
+    start_routine(arg);    // Call start routine
+    uthread_exit(0);       // Call exit if start_routine did not
 }
 
 int uthread_init(int quantum_usecs) {
@@ -147,10 +145,11 @@ int uthread_init(int quantum_usecs) {
     quantum = quantum_usecs;
 
     // Create TCB for main thread
+    // Main thread will have tid 0
     main_thread = new TCB(0, GREEN, NULL, NULL, READY);
 
     // Initialize itimer data sturcture
-    itimer.it_interval.tv_usec = quantum_usecs;
+    itimer.it_interval.tv_usec = quantum_usecs;    // ??
 
     // Set up signal handler for SIGVTALRM
     struct sigaction sac;
@@ -200,20 +199,24 @@ int uthread_yield(void) {
 
     disableInterrupts();
 
+    // Choose a TCB from ready queue
     chosenTCB = popFromReadyQueue();
+    // Throws exception if empty so need to change later
     if (chosenTCB == NULL) {
-        // No threads in queue;
+        // No threads in queue
         enableInterrupts();
         return -1;
-    } else {
-        current_thread->setState(READY);
-        addToReadyQueue(current_thread);
-        switchThreads();
-        current_thread->setState(RUNNING);
-        enableInterrupts();
-        // not sure
-        return current_thread->getId();
     }
+
+    current_thread->setState(READY);
+    addToReadyQueue(current_thread);
+
+    switchThreads();
+
+    current_thread->setState(RUNNING);
+    enableInterrupts();
+
+    return 0;
 }
 
 void uthread_exit(void *retval) {
@@ -239,7 +242,7 @@ int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
 }
 
 int uthread_self() {
-    // TODO
+    return current_thread->getId();
 }
 
 int uthread_get_total_quantums() {
