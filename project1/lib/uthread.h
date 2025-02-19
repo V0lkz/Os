@@ -71,4 +71,4 @@ int uthread_get_total_quantums();
 // Return the thread quantum set count
 int uthread_get_quantums(int tid);
 
-#endif
+#endif    // _UTHREADS_H

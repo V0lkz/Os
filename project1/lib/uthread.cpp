@@ -1,5 +1,8 @@
 #include "uthread.h"
 
+#include <signal.h>
+#include <sys/time.h>
+
 #include <cassert>
 #include <deque>
 
@@ -29,6 +32,8 @@ typedef struct join_queue_entry {
 // - Separate join and finished "queues" can also help when supporting joining.
 //   Example join and finished queue entry types are provided above
 
+// Global Variables  -----------------------------------------------------------
+
 // Queues
 static std::deque<TCB *> ready_queue;
 static std::deque<TCB *> finish_queue;
@@ -38,13 +43,21 @@ static sigset_t oset;
 static TCB *main_thread;
 static int tid_num = 0;
 static int quantum = -1;
+
 static struct itimerval itimer;
+static sigset_t block_set;
+
+// TCBs
+static TCB *main_thread;
+static int tid_num = 1;
+static int quantum = -1;
 
 static TCB *current_thread;
 
 // Interrupt Management --------------------------------------------------------
 
-static void handle_alrm(int signum) {
+// Signal handler for SIGVTALRM
+static void handle_vtalrm(int signum) {
     uthread_yield();
 }
 
@@ -55,14 +68,8 @@ static void startInterruptTimer() {
 
 // Block signals from firing timer interrupt
 static void disableInterrupts() {
-    sigset_t set;
-    // Set mask to block all signals
-    if (sigfillset(&set) != 0) {
-        perror("sigfillset");
-        // rip
-    }
-    // Install signal mask and save old mask
-    if (sigprocmask(SIG_SETMASK, &set, &oset) != 0) {
+    // Add SIGVTALRM to current signal mask
+    if (sigprocmask(SIG_BLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
         // rip
     }
@@ -70,8 +77,8 @@ static void disableInterrupts() {
 
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
-    // Unblock signals
-    if (sigprocmask(SIG_SETMASK, &oset, NULL) != 0) {
+    // Remove SIGVTALRM from current signal mask
+    if (sigprocmask(SIG_UNBLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
         // rip
     }
@@ -125,26 +132,35 @@ static void switchThreads() {
 
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
-    // Call start routine
-    start_routine(arg);
-    // Call exit if start_routine did not
-    uthread_exit(0);
+
+    start_routine(arg);    // Call start routine
+    uthread_exit(0);       // Call exit if start_routine did not
+
 }
 
 int uthread_init(int quantum_usecs) {
     // Initialize any data structures
     // Setup timer interrupt and handler
     // Create a thread for the caller (main) thread
-    disableInterrupts();
+
+    // Set signal mask to block itimer interupt signal
+    if (sigaddset(&block_set, SIGVTALRM) != 0) {
+        perror("sigaddset");
+        return -1;
+    }
+
+    quantum = quantum_usecs;
 
     // Create TCB for main thread
-    main_thread = new TCB(tid_num++, GREEN, READY);
+    // Main thread will have tid 0
+    main_thread = new TCB(0, GREEN, NULL, NULL, READY);
 
     // Initialize itimer data sturcture
     itimer.it_value.tv_sec = quantum_usecs / 1000000;
     itimer.it_value.tv_usec = quantum_usecs % 1000000;
     itimer.it_interval.tv_sec =  quantum_usecs / 1000000;
     itimer.it_interval.tv_usec = quantum_usecs % 1000000;
+
 
     // Set up signal handler for SIGVTALRM
     struct sigaction sac;
@@ -153,13 +169,11 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
     sac.sa_flags = 0;
-    sac.sa_handler = handle_alrm;
+    sac.sa_handler = handle_vtalrm;
     if (sigaction(SIGVTALRM, &sac, NULL) != 0) {
         perror("sigaction");
         return -1;
     }
-
-    enableInterrupts();
 
     return 0;
 }
@@ -168,12 +182,20 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
     // Create a new thread and add it to the ready queue
     disableInterrupts();
 
+    // Arbitrarily assign thread id
     int tid = tid_num++;
-    TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
+    if (tid > MAX_THREAD_NUM) {
+        // Maximun number of threads reached
+        enableInterrupts();
+        return -1;
+    }
 
+    // Create new TCB and add to ready queue
+    TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
     addToReadyQueue(tcb);
 
     enableInterrupts();
+
     return tid;
 }
 
@@ -189,20 +211,24 @@ int uthread_yield(void) {
 
     disableInterrupts();
 
+    // Choose a TCB from ready queue
     chosenTCB = popFromReadyQueue();
+    // Throws exception if empty so need to change later
     if (chosenTCB == NULL) {
-        // No threads in queue;
+        // No threads in queue
         enableInterrupts();
         return -1;
-    } else {
-        current_thread->setState(READY);
-        addToReadyQueue(current_thread);
-        switchThreads();
-        current_thread->setState(RUNNING);
-        enableInterrupts();
-        // not sure
-        return current_thread->getId();
     }
+
+    current_thread->setState(READY);
+    addToReadyQueue(current_thread);
+
+    switchThreads();
+
+    current_thread->setState(RUNNING);
+    enableInterrupts();
+
+    return 0;
 }
 
 void uthread_exit(void *retval) {
@@ -228,7 +254,7 @@ int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
 }
 
 int uthread_self() {
-    // TODO
+    return current_thread->getId();
 }
 
 int uthread_get_total_quantums() {
