@@ -1,5 +1,8 @@
 #include "uthread.h"
 
+#include <signal.h>
+#include <sys/time.h>
+
 #include <cassert>
 #include <deque>
 
@@ -29,22 +32,26 @@ typedef struct join_queue_entry {
 // - Separate join and finished "queues" can also help when supporting joining.
 //   Example join and finished queue entry types are provided above
 
+/* -- Global Variables -- */
+
 // Queues
 static std::deque<TCB *> ready_queue;
 
-// Global variables
-static sigset_t oset = 0;
+// Signal interupts
+static struct itimerval itimer;
+static sigset_t block_set;
+
+// TCBs
 static TCB *main_thread;
 static int tid_num = 0;
 static int quantum = -1;
-static struct itimerval itimer;
 
 static TCB *current_thread;
 
-// Interrupt Management --------------------------------------------------------
+/* -- Interrupt Management -- */
 
 static void handle_alrm(int signum) {
-    uthread_yeild();
+    uthread_yield();
 }
 
 // Start a countdown timer to fire an interrupt
@@ -54,14 +61,8 @@ static void startInterruptTimer() {
 
 // Block signals from firing timer interrupt
 static void disableInterrupts() {
-    sigset_t set;
-    // Set mask to block all signals
-    if (sigfillset(&set) != 0) {
-        perror("sigfillset");
-        // rip
-    }
-    // Install signal mask and save old mask
-    if (sigprocmask(SIG_SETMASK, &set, &oset) != 0) {
+    // Add SIGVTALRM to current signal mask
+    if (sigprocmask(SIG_BLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
         // rip
     }
@@ -69,14 +70,14 @@ static void disableInterrupts() {
 
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
-    // Unblock signals
-    if (sigprocmask(SIG_SETMASK, &oset, NULL) != 0) {
+    // Remove SIGVTALRM from current signal mask
+    if (sigprocmask(SIG_UNBLOCK, &unblock_set, NULL) != 0) {
         perror("sigprocmask");
         // rip
     }
 }
 
-// Queue Management ------------------------------------------------------------
+/* -- Queue Management -- */
 
 // Add TCB to the back of the ready queue
 void addToReadyQueue(TCB *tcb) {
@@ -135,7 +136,12 @@ int uthread_init(int quantum_usecs) {
     // Initialize any data structures
     // Setup timer interrupt and handler
     // Create a thread for the caller (main) thread
-    disableInterrupts();
+
+    // Set signal mask to block itimer interupt signal
+    if (sigaddset(&block_set, SIGVTALRM) != 0) {
+        perror("sigaddset");
+        return -1;
+    }
 
     // Create TCB for main thread
     main_thread = new TCB(tid_num++, GREEN, READY);
@@ -151,12 +157,11 @@ int uthread_init(int quantum_usecs) {
     }
     sac.sa_flags = 0;
     sac.sa_handler = handle_alrm;
-    if (sigaction(SIGVTALRM, sactm NULL) != 0) {
+    // Install signal handler
+    if (sigaction(SIGVTALRM, &sac, NULL) != 0) {
         perror("sigaction");
         return -1;
     }
-
-    enableInterrupts();
 
     return 0;
 }
