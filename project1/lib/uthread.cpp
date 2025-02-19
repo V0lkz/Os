@@ -43,6 +43,10 @@ static TCB *current_thread;
 
 // Interrupt Management --------------------------------------------------------
 
+static void handle_alrm(int signum) {
+    uthread_yeild();
+}
+
 // Start a countdown timer to fire an interrupt
 static void startInterruptTimer() {
     setitimer(ITIMER_VIRTUAL, &itimer, NULL);
