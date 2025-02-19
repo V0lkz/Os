@@ -38,20 +38,16 @@ typedef struct join_queue_entry {
 static std::deque<TCB *> ready_queue;
 static std::deque<TCB *> finish_queue;
 
-// Global variables
-static sigset_t oset;
-static TCB *main_thread;
-static int tid_num = 0;
-static int quantum = -1;
-
+// Interrupts
 static struct itimerval itimer;
 static sigset_t block_set;
+static int quantum;
 
 // TCBs
-static TCB *main_thread;
+static int total_threads = 0;
 static int tid_num = 1;
-static int quantum = -1;
 
+static TCB *main_thread;
 static TCB *current_thread;
 
 // Interrupt Management --------------------------------------------------------
@@ -118,11 +114,11 @@ int removeFromReadyQueue(int tid) {
 
 // Switch to the next ready thread
 static void switchThreads() {
-  if(current_thread->saveContext() == 0){
-    addToReadyQueue(current_thread);
-    current_thread = popFromReadyQueue();
-    current_thread->loadContext();
-  }
+    if (current_thread->saveContext() == 0) {
+        addToReadyQueue(current_thread);
+        current_thread = popFromReadyQueue();
+        current_thread->loadContext();
+    }
 }
 
 // Library functions -----------------------------------------------------------
@@ -132,10 +128,8 @@ static void switchThreads() {
 
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
-
     start_routine(arg);    // Call start routine
     uthread_exit(0);       // Call exit if start_routine did not
-
 }
 
 int uthread_init(int quantum_usecs) {
@@ -154,13 +148,13 @@ int uthread_init(int quantum_usecs) {
     // Create TCB for main thread
     // Main thread will have tid 0
     main_thread = new TCB(0, GREEN, NULL, NULL, READY);
+    total_threads = 1;
 
     // Initialize itimer data sturcture
     itimer.it_value.tv_sec = quantum_usecs / 1000000;
     itimer.it_value.tv_usec = quantum_usecs % 1000000;
-    itimer.it_interval.tv_sec =  quantum_usecs / 1000000;
+    itimer.it_interval.tv_sec = quantum_usecs / 1000000;
     itimer.it_interval.tv_usec = quantum_usecs % 1000000;
-
 
     // Set up signal handler for SIGVTALRM
     struct sigaction sac;
@@ -182,13 +176,15 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
     // Create a new thread and add it to the ready queue
     disableInterrupts();
 
-    // Arbitrarily assign thread id
-    int tid = tid_num++;
-    if (tid > MAX_THREAD_NUM) {
-        // Maximun number of threads reached
+    // Check if maximun number of threads reached
+    if (total_threads >= MAX_THREAD_NUM) {
         enableInterrupts();
         return -1;
     }
+
+    // Arbitrarily assign thread id
+    int tid = tid_num++;
+    total_threads++;
 
     // Create new TCB and add to ready queue
     TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
@@ -203,8 +199,30 @@ int uthread_join(int tid, void **retval) {
     // If the thread specified by tid is already terminated, just return
     // If the thread specified by tid is still running, block until it terminates
     // Set *retval to be the result of thread if retval != nullptr
-}
 
+    disableInterrupts();
+
+    std::deque<TCB *>::iterator iter;
+    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
+        if ((*iter)->getId() == tid) {
+            *retval = (*iter)->getReturnValue();
+            return 0;
+        }
+    }
+
+    int found = 0;
+    for (iter = ready_queue.begin(); iter != ready_queue.end(); iter++) {
+        if ((*iter)->getId() == tid) {
+            found = 1;
+            uthread_yield();
+            break;
+        }
+    }
+
+    enableInterrupts();
+
+    return 0;
+}
 
 int uthread_yield(void) {
     TCB *chosenTCB;
@@ -228,15 +246,15 @@ int uthread_yield(void) {
     current_thread->setState(RUNNING);
     enableInterrupts();
 
-    return current_thread->getId();;
+    return current_thread->getId();
 }
 
 void uthread_exit(void *retval) {
     // If this is the main thread, exit the program
     // Move any threads joined on this thread back to the ready queue
     // Move this thread to the finished queue
-  current_thread->setState(FINISH);
-  current_thread->setReturnValue(retval);
+    current_thread->setState(FINISH);
+    current_thread->setReturnValue(retval);
 }
 
 int uthread_suspend(int tid) {

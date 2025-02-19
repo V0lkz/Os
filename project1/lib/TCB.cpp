@@ -5,7 +5,7 @@
 extern int quantum;
 
 TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, State state)
-    : _tid(tid), _pr(pr), _quantum(0), _state(state) {
+    : _tid(tid), _pr(pr), _quantum(0), _state(state), _retval(NULL) {
     // Make new context
     if (getcontext(&_context) != 0) {
         perror("getcontext");
@@ -61,9 +61,9 @@ void TCB::loadContext() {
 }
 
 void TCB::setReturnValue(void *retval) {
-    _ret_val = retval;
+    _retval = retval;
 }
 
 void *TCB::getReturnValue() const {
-    return _ret_val;
+    return _retval;
 }

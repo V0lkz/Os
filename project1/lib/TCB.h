@@ -103,13 +103,13 @@ public:
     void *getReturnValue() const;
 
 private:
-    int _tid;    // The thread id number.
-    Priority _pr;    // The priority of the thread (Red, orange or green)
-    int _quantum;    // The time interval, as explained in the pdf.
-    State _state;    // The state of the thread
-    char *_stack;    // The thread's stack
-    ucontext_t _context;    // The thread's saved context
-    void *_ret_val;    // The thread's return value
+    int _tid;                              // The thread id number.
+    Priority _pr;                          // The priority of the thread (Red, orange or green)
+    int _quantum;                          // The time interval, as explained in the pdf.
+    State _state;                          // The state of the thread
+    char *_stack;                          // The thread's stack
+    void *_retval;                         // The thread's return value
+    ucontext_t _context;                   // The thread's saved context
     void *(*_start_routine)(void *arg);    // The thread's function
 };
 
