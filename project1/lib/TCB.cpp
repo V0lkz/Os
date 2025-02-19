@@ -19,17 +19,18 @@ TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, Sta
     // Continue constructing if it is not the main thread
     if (tid != 0) {
         // Push function and args onto stack
-        *(_stack) = start_routine;
-        _stack -= sizeof(void *);
-        *(_stack) = arg;
-        _stack -= sizeof(void *);
+        // Idk how to do this
+        // *(_stack) = start_routine;
+        // _stack -= sizeof(void *);
+        // *(_stack) = arg;
+        // _stack -= sizeof(void *);
         // Call make context
         makecontext(&_context, (void (*)())(stub), 2, start_routine, arg);
     }
 }
 
 TCB::~TCB() {
-    delete _context.uc_stack.ss_sp;
+    delete (char *) _context.uc_stack.ss_sp;
 }
 
 void TCB::setState(State state) {
