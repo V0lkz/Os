@@ -114,15 +114,25 @@ int removeFromReadyQueue(int tid) {
 
 // Switch to the next ready thread
 static void switchThreads() {
+
+    //flag, keep track of the resumed thread
+    volatile int flag = 0;
+    
     // Save old thread context
     if (current_thread->saveContext() != 0) {
         perror("getcontext");
         return;
     }
 
+    //The resumed thread return here
+    if(flag == 1){
+        return;
+    }
+
     // Select new thread to run
     current_thread = popFromReadyQueue();
     current_thread->loadContext();
+    flag = 1;
 }
 
 // Library functions -----------------------------------------------------------
@@ -152,6 +162,7 @@ int uthread_init(int quantum_usecs) {
     // Create TCB for main thread
     // Main thread will have tid 0
     main_thread = new TCB(0, GREEN, NULL, NULL, READY);
+    current_thread = main_thread;
     total_threads = 1;
 
     // Initialize itimer data sturcture
@@ -173,6 +184,8 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
 
+    //start the timer
+    startInterruptTimer();
     return 0;
 }
 

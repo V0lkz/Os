@@ -18,12 +18,14 @@ TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, Sta
     _stack = (char *) (_context.uc_stack.ss_sp) + STACK_SIZE;
     // Continue constructing if it is not the main thread
     if (tid != 0) {
-        // Push function and args onto stack
-        // Idk how to do this
-        // *(_stack) = start_routine;
-        // _stack -= sizeof(void *);
-        // *(_stack) = arg;
-        // _stack -= sizeof(void *);
+    
+        //push start_routine and arg onto the stack   
+        //store the routine and arg in memeory 
+        _stack -= sizeof(void *);
+        *(void **)_stack = (void *)start_routine;
+    
+        _stack -= sizeof(void *);
+        *(void **)_stack = (void *)arg;
         // Call make context
         makecontext(&_context, (void (*)())(stub), 2, start_routine, arg);
     }
