@@ -37,6 +37,7 @@ typedef struct join_queue_entry {
 // Queues
 static std::deque<TCB *> ready_queue;
 static std::deque<TCB *> finish_queue;
+static std::deque<TCB *> block_queue;
 
 // Interrupts
 static struct itimerval itimer;
@@ -141,8 +142,8 @@ static void switchThreads() {
 
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
-    start_routine(arg);    // Call start routine
-    uthread_exit(0);       // Call exit if start_routine did not
+    void *retval = start_routine(arg);    // Call start routine
+    uthread_exit(retval);                 // Call exit if start_routine did not
 }
 
 int uthread_init(int quantum_usecs) {
@@ -183,7 +184,7 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
 
-    // start the timer
+    // Start the timer
     startInterruptTimer();
     return 0;
 }
@@ -282,6 +283,15 @@ void uthread_exit(void *retval) {
 int uthread_suspend(int tid) {
     // Move the thread specified by tid from whatever state it is
     // in to the block queue
+
+    disableInterrupts();
+
+    // get from ready queue
+    // remove from ready queue
+    // add to block queue
+
+    enableInterrupts();
+    return 0;
 }
 
 int uthread_resume(int tid) {
