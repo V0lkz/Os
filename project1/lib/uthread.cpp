@@ -319,5 +319,15 @@ int uthread_get_total_quantums() {
 }
 
 int uthread_gt_quantums(int tid) {
-    return current_thread->getQuantum();
+    disableInterrupts();
+    // Iterate through READY Queue for given tid
+    std::deque<TCB *>::iterator iter;
+    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
+        if ((*iter)->getId() == tid) {
+            enableInterrupts();
+            return (*iter)->getQuantum();
+        }
+    }
+    enableInterrupts();
+    return -1;
 }
