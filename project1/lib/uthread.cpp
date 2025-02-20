@@ -114,18 +114,17 @@ int removeFromReadyQueue(int tid) {
 
 // Switch to the next ready thread
 static void switchThreads() {
-
-    //flag, keep track of the resumed thread
+    // flag, keep track of the resumed thread
     volatile int flag = 0;
-    
+
     // Save old thread context
     if (current_thread->saveContext() != 0) {
         perror("getcontext");
         return;
     }
 
-    //The resumed thread return here
-    if(flag == 1){
+    // The resumed thread return here
+    if (flag == 1) {
         return;
     }
 
@@ -184,7 +183,7 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
 
-    //start the timer
+    // start the timer
     startInterruptTimer();
     return 0;
 }
@@ -301,9 +300,24 @@ int uthread_self() {
 }
 
 int uthread_get_total_quantums() {
-    // TODO
+    int total = 0;
+
+    disableInterrupts();
+
+    // Iterate through READY queue and total up quantums
+    std::deque<TCB *>::iterator iter;
+    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
+        total += (*iter)->getQuantum();
+    }
+
+    // Add quantom for current RUNNING thread
+    total += current_thread->getQuantum();
+
+    enableInterrupts();
+
+    return total;
 }
 
-int uthread_get_quantums(int tid) {
-    // TODO
+int uthread_gt_quantums(int tid) {
+    return current_thread->getQuantum();
 }
