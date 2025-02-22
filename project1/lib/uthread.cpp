@@ -42,19 +42,21 @@ static std::deque<TCB *> block_queue;
 // Interrupts
 static struct itimerval itimer;
 static sigset_t block_set;
+static int total_quantums;
 static int quantum;
 
 // TCBs
-static int total_threads = 0;
-static int tid_num = 1;
+static int total_threads;
+static int tid_num;
 
-static TCB *main_thread;
 static TCB *current_thread;
+static TCB *main_thread;
 
 // Interrupt Management --------------------------------------------------------
 
 // Signal handler for SIGVTALRM
 static void handle_vtalrm(int signum) {
+    total_quantums++;
     uthread_yield();
 }
 
@@ -62,7 +64,7 @@ static void handle_vtalrm(int signum) {
 static void startInterruptTimer() {
     if (setitimer(ITIMER_VIRTUAL, &itimer, NULL) != 0) {
         perror("setitimer");
-        throw;
+        // Rip
     }
 }
 
@@ -85,6 +87,17 @@ static void enableInterrupts() {
 }
 
 // Queue Management ------------------------------------------------------------
+
+// Search queue for specified tid
+TCB *getFromQueue(std::deque<TCB *> &queue, int tid) {
+    std::deque<TCB *>::iterator iter;
+    for (iter = queue.begin(); iter != queue.end(); iter++) {
+        if ((*iter)->getId() == tid) {
+            return *iter;
+        }
+    }
+    return nullptr;
+}
 
 // Add TCB to the back of the ready queue
 void addToReadyQueue(TCB *tcb) {
@@ -163,11 +176,12 @@ int uthread_init(int quantum_usecs) {
         return -1;
     }
 
+    total_quantums = 0;
     quantum = quantum_usecs;
 
+    // Create TCB for main thread
+    // Main thread will have tid 0
     try {
-        // Create TCB for main thread
-        // Main thread will have tid 0
         main_thread = new TCB(0, GREEN, NULL, NULL, READY);
     } catch (const std::exception &e) {
         std::cerr << "TCB: " << e.what() << std::endl;
@@ -175,6 +189,7 @@ int uthread_init(int quantum_usecs) {
     }
     current_thread = main_thread;
     total_threads = 1;
+    tid_num = 1;
 
     // Initialize itimer data sturcture
     itimer.it_value.tv_sec = quantum_usecs / 1000000;
@@ -255,6 +270,7 @@ int uthread_join(int tid, void **retval) {
 int uthread_yield(void) {
     // Keep track of calling thread for error handling
     TCB *old_thread = current_thread;
+    int ret_val = 0;
 
     disableInterrupts();
 
@@ -267,6 +283,7 @@ int uthread_yield(void) {
         // On failure, resume calling thread
         removeFromReadyQueue(old_thread->getId());
         current_thread = old_thread;
+        ret_val = -1;
     }
 
     // Set thread to RUNNING and start timer
@@ -275,7 +292,7 @@ int uthread_yield(void) {
 
     enableInterrupts();
 
-    return current_thread->getId();
+    return ret_val;
 }
 
 void uthread_exit(void *retval) {
@@ -283,6 +300,9 @@ void uthread_exit(void *retval) {
     // Move any threads joined on this thread back to the ready queue
     // Move this thread to the finished queue
 
+    if (current_thread == main_thread) {
+        exit(0);    // ??
+    }
     // current_thread->setState(FINISH);
     current_thread->setReturnValue(retval);
 }
@@ -317,33 +337,27 @@ int uthread_self() {
 }
 
 int uthread_get_total_quantums() {
-    int total = 0;
-
-    disableInterrupts();
-
-    // Iterate through READY queue and total up quantums
-    std::deque<TCB *>::iterator iter;
-    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
-        total += (*iter)->getQuantum();
-    }
-
-    // Add quantum for current thread (usually main)
-    total += current_thread->getQuantum();
-
-    enableInterrupts();
-
-    return total;
+    return total_quantums;
 }
 
 int uthread_gt_quantums(int tid) {
+    TCB *tcb;
     disableInterrupts();
-    // Iterate through READY Queue for given tid
-    std::deque<TCB *>::iterator iter;
-    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
-        if ((*iter)->getId() == tid) {
-            enableInterrupts();
-            return (*iter)->getQuantum();
-        }
+    // Check RUNNING thread
+    if (current_thread->getId() == tid) {
+        return current_thread->getQuantum();
+    }
+    // Check READY queue
+    if ((tcb = getFromQueue(ready_queue, tid)) != nullptr) {
+        return tcb->getQuantum();
+    }
+    // Check BLOCK queue
+    if ((tcb = getFromQueue(block_queue, tid)) != nullptr) {
+        return tcb->getQuantum();
+    }
+    // Check FINISH queue
+    if ((tcb = getFromQueue(finish_queue, tid)) != nullptr) {
+        return tcb->getQuantum();
     }
     enableInterrupts();
     return -1;
