@@ -73,7 +73,7 @@ static void disableInterrupts() {
     // Add SIGVTALRM to current signal mask
     if (sigprocmask(SIG_BLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
-        // rip
+        // Rip
     }
 }
 
@@ -82,13 +82,13 @@ static void enableInterrupts() {
     // Remove SIGVTALRM from current signal mask
     if (sigprocmask(SIG_UNBLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
-        // rip
+        // Rip
     }
 }
 
 // Queue Management ------------------------------------------------------------
 
-// Search queue for specified tid
+// Search given queue for specified tid
 TCB *getFromQueue(std::deque<TCB *> &queue, int tid) {
     std::deque<TCB *>::iterator iter;
     for (iter = queue.begin(); iter != queue.end(); iter++) {
@@ -99,9 +99,9 @@ TCB *getFromQueue(std::deque<TCB *> &queue, int tid) {
     return nullptr;
 }
 
-// Add TCB to the back of the ready queue
-void addToReadyQueue(TCB *tcb) {
-    ready_queue.push_back(tcb);
+// Add TCB to the back of the given queue
+void addToQueue(std::deque<TCB *> &queue, TCB *tcb) {
+    queue.push_back(tcb);
 }
 
 // Removes and returns the first TCB on the ready queue
@@ -146,7 +146,7 @@ static int switchThreads() {
     // Select new thread to run
     current_thread = popFromReadyQueue();
     if (setcontext(&current_thread->_context) != 0) {
-        addToReadyQueue(current_thread);
+        addToQueue(ready_queue, current_thread);
         perror("setcontext");
         return -1;
     }
@@ -231,7 +231,7 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
 
     // Create new TCB and add to ready queue
     TCB *tcb = new TCB(tid, GREEN, start_routine, arg, READY);
-    addToReadyQueue(tcb);
+    addToQueue(ready_queue, tcb);
 
     enableInterrupts();
 
@@ -276,7 +276,7 @@ int uthread_yield(void) {
 
     // Add current thread to ready queue
     current_thread->setState(READY);
-    addToReadyQueue(current_thread);
+    addToQueue(ready_queue, current_thread);
 
     // Switch to new thread
     if (switchThreads() != 0) {
@@ -300,11 +300,19 @@ void uthread_exit(void *retval) {
     // Move any threads joined on this thread back to the ready queue
     // Move this thread to the finished queue
 
+    disableInterrupts();
+
+    // Check if calling thread is main thread
     if (current_thread == main_thread) {
         exit(0);    // ??
     }
-    // current_thread->setState(FINISH);
+
+    // Move thread to finish queue
+    current_thread->setState(FINISH);
     current_thread->setReturnValue(retval);
+    addToQueue(finish_queue, current_thread);
+
+    enableInterrupts();
 }
 
 int uthread_suspend(int tid) {
@@ -340,23 +348,27 @@ int uthread_get_total_quantums() {
     return total_quantums;
 }
 
-int uthread_gt_quantums(int tid) {
+int uthread_get_quantums(int tid) {
     TCB *tcb;
     disableInterrupts();
     // Check RUNNING thread
     if (current_thread->getId() == tid) {
+        enableInterrupts();
         return current_thread->getQuantum();
     }
     // Check READY queue
     if ((tcb = getFromQueue(ready_queue, tid)) != nullptr) {
+        enableInterrupts();
         return tcb->getQuantum();
     }
     // Check BLOCK queue
     if ((tcb = getFromQueue(block_queue, tid)) != nullptr) {
+        enableInterrupts();
         return tcb->getQuantum();
     }
     // Check FINISH queue
     if ((tcb = getFromQueue(finish_queue, tid)) != nullptr) {
+        enableInterrupts();
         return tcb->getQuantum();
     }
     enableInterrupts();
