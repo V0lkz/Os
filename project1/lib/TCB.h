@@ -80,16 +80,16 @@ public:
      */
     int getQuantum() const;
 
-    /**
-     * function that saves the thread's context
-     * @return zero on success, -1 on failure
-     */
-    int saveContext();
+    // /**
+    //  * function that saves the thread's context
+    //  * @return zero on success, -1 on failure
+    //  */
+    // int saveContext();
 
-    /**
-     * function that loads the thread's previously saved context
-     */
-    void loadContext();
+    // /**
+    //  * function that loads the thread's previously saved context
+    //  */
+    // void loadContext();
 
     /**
      * function that set and get the return value of the thread
@@ -102,6 +102,8 @@ public:
      */
     void *getReturnValue() const;
 
+    ucontext_t _context;    // The thread's saved context
+
 private:
     int _tid;                              // The thread id number.
     Priority _pr;                          // The priority of the thread (Red, orange or green)
@@ -109,7 +111,6 @@ private:
     State _state;                          // The state of the thread
     char *_stack;                          // The thread's stack
     void *_retval;                         // The thread's return value
-    ucontext_t _context;                   // The thread's saved context
     void *(*_start_routine)(void *arg);    // The thread's function
 };
 

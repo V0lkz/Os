@@ -60,7 +60,10 @@ static void handle_vtalrm(int signum) {
 
 // Start a countdown timer to fire an interrupt
 static void startInterruptTimer() {
-    setitimer(ITIMER_VIRTUAL, &itimer, NULL);
+    if (setitimer(ITIMER_VIRTUAL, &itimer, NULL) != 0) {
+        perror("setitimer");
+        throw;
+    }
 }
 
 // Block signals from firing timer interrupt
@@ -114,25 +117,28 @@ int removeFromReadyQueue(int tid) {
 // Helper functions ------------------------------------------------------------
 
 // Switch to the next ready thread
-static void switchThreads() {
-    // flag, keep track of the resumed thread
+static int switchThreads() {
+    // Flag, to keep track of the resumed thread
     volatile int flag = 0;
 
     // Save old thread context
-    if (current_thread->saveContext() != 0) {
+    if (getcontext(&current_thread->_context) != 0) {
         perror("getcontext");
-        return;
+        return -1;
     }
-
-    // The resumed thread return here
+    // The resumed thread returns here
     if (flag == 1) {
-        return;
+        return 0;
     }
-
     // Select new thread to run
     current_thread = popFromReadyQueue();
-    current_thread->loadContext();
+    if (setcontext(&current_thread->_context) != 0) {
+        addToReadyQueue(current_thread);
+        perror("setcontext");
+        return -1;
+    }
     flag = 1;
+    return 0;
 }
 
 // Library functions -----------------------------------------------------------
@@ -159,9 +165,14 @@ int uthread_init(int quantum_usecs) {
 
     quantum = quantum_usecs;
 
-    // Create TCB for main thread
-    // Main thread will have tid 0
-    main_thread = new TCB(0, GREEN, NULL, NULL, READY);
+    try {
+        // Create TCB for main thread
+        // Main thread will have tid 0
+        main_thread = new TCB(0, GREEN, NULL, NULL, READY);
+    } catch (const std::exception &e) {
+        std::cerr << "TCB: " << e.what() << std::endl;
+        return -1;
+    }
     current_thread = main_thread;
     total_threads = 1;
 
@@ -242,29 +253,25 @@ int uthread_join(int tid, void **retval) {
 }
 
 int uthread_yield(void) {
-    // TCB *chosenTCB;
+    // Keep track of calling thread for error handling
+    TCB *old_thread = current_thread;
 
     disableInterrupts();
-
-    // // Choose a TCB from ready queue
-    // chosenTCB = popFromReadyQueue();
-    // // Throws exception if empty so need to change later
-    // // Shouldn't be empty because of main thread
-    // if (chosenTCB == NULL) {
-    //     // No threads in queue
-    //     enableInterrupts();
-    //     return -1;
-    // }
 
     // Add current thread to ready queue
     current_thread->setState(READY);
     addToReadyQueue(current_thread);
 
     // Switch to new thread
-    switchThreads();
+    if (switchThreads() != 0) {
+        // On failure, resume calling thread
+        removeFromReadyQueue(old_thread->getId());
+        current_thread = old_thread;
+    }
 
-    startInterruptTimer();
+    // Set thread to RUNNING and start timer
     current_thread->setState(RUNNING);
+    startInterruptTimer();
 
     enableInterrupts();
 
@@ -320,7 +327,7 @@ int uthread_get_total_quantums() {
         total += (*iter)->getQuantum();
     }
 
-    // Add quantom for current RUNNING thread
+    // Add quantum for current thread (usually main)
     total += current_thread->getQuantum();
 
     enableInterrupts();
