@@ -9,8 +9,8 @@ TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, Sta
         throw std::runtime_error("getcontext");
     }
     // Create stack for thread
-    _context.uc_stack.ss_sp = new char[STACK_SIZE];
-    _context.uc_stack.ss_size = STACK_SIZE;
+    _context.uc_stack.ss_sp    = new char[STACK_SIZE];
+    _context.uc_stack.ss_size  = STACK_SIZE;
     _context.uc_stack.ss_flags = 0;
     // Setup TCB stack pointer
     _stack = (char *) (_context.uc_stack.ss_sp) + STACK_SIZE;

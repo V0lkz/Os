@@ -36,8 +36,9 @@ typedef struct join_queue_entry {
 
 // Queues
 static std::deque<TCB *> ready_queue;
-static std::deque<TCB *> finish_queue;
 static std::deque<TCB *> block_queue;
+static std::deque<TCB *> finish_queue;
+static std::deque<join_queue_entry_t> join_queue;
 
 // Interrupts
 static struct itimerval itimer;
@@ -242,29 +243,32 @@ int uthread_join(int tid, void **retval) {
     // If the thread specified by tid is already terminated, just return
     // If the thread specified by tid is still running, block until it terminates
     // Set *retval to be the result of thread if retval != nullptr
+    TCB *tcb;
 
     disableInterrupts();
 
-    std::deque<TCB *>::iterator iter;
-    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
-        if ((*iter)->getId() == tid) {
-            *retval = (*iter)->getReturnValue();
-            return 0;
+    // Check if thread is in the FINISH queue
+    if ((tcb = getFromQueue(finish_queue, tid)) != nullptr) {
+        if (retval != NULL) {
+            *retval = tcb->getReturnValue();
         }
+        return 0;
     }
 
-    int found = 0;
-    for (iter = ready_queue.begin(); iter != ready_queue.end(); iter++) {
-        if ((*iter)->getId() == tid) {
-            found = 1;
-            uthread_yield();
-            break;
-        }
+    // Check if thread is in the READY queue
+    if ((tcb = getFromQueue(ready_queue, tid)) != nullptr) {
+        // Create join queue entry
+        join_queue_entry jqe = {.tcb = tcb, .waiting_for_tid = tid};
+        current_thread->setState(BLOCK);
+        addToQueue(block_queue, current_thread);
+
+        uthread_yield();
+        enableInterrupts();
+        return 0;
     }
 
     enableInterrupts();
-
-    return 0;
+    return -1;
 }
 
 int uthread_yield(void) {
@@ -351,26 +355,31 @@ int uthread_get_total_quantums() {
 int uthread_get_quantums(int tid) {
     TCB *tcb;
     disableInterrupts();
+
     // Check RUNNING thread
     if (current_thread->getId() == tid) {
         enableInterrupts();
         return current_thread->getQuantum();
     }
+
     // Check READY queue
     if ((tcb = getFromQueue(ready_queue, tid)) != nullptr) {
         enableInterrupts();
         return tcb->getQuantum();
     }
+
     // Check BLOCK queue
     if ((tcb = getFromQueue(block_queue, tid)) != nullptr) {
         enableInterrupts();
         return tcb->getQuantum();
     }
+
     // Check FINISH queue
     if ((tcb = getFromQueue(finish_queue, tid)) != nullptr) {
         enableInterrupts();
         return tcb->getQuantum();
     }
+
     enableInterrupts();
     return -1;
 }
