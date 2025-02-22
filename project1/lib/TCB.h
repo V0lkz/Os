@@ -1,4 +1,4 @@
-/*
+/**
  * Thread Control Block Header
  */
 #ifndef TCB_H
@@ -21,11 +21,12 @@ extern void stub(void *(*start_routine)(void *), void *arg);
 enum State {
     READY,
     RUNNING,
-    BLOCK
+    BLOCK,
+    FINISH
 };
 
-/*
- * The thread
+/**
+ * The thread class
  */
 class TCB {
 public:
@@ -80,17 +81,6 @@ public:
      */
     int getQuantum() const;
 
-    // /**
-    //  * function that saves the thread's context
-    //  * @return zero on success, -1 on failure
-    //  */
-    // int saveContext();
-
-    // /**
-    //  * function that loads the thread's previously saved context
-    //  */
-    // void loadContext();
-
     /**
      * function that set and get the return value of the thread
      * @param retval the return value of the thread
@@ -114,4 +104,4 @@ private:
     void *(*_start_routine)(void *arg);    // The thread's function
 };
 
-#endif /* TCB_H */
+#endif    // TCB_H
