@@ -328,13 +328,45 @@ int uthread_suspend(int tid) {
     // get from ready queue
     // remove from ready queue
     // add to block queue
+   if(current_thread->getId() == tid)){
+       current_thread->setState(BLOCK);
+       addToQueue(block_queue, current_thread);
+       uthread_yield();
+       enableInterrupts();
+
+       return 0;
+   }
+
+    TCB* tcb = getFromQueue(ready_queue, tid);
+    if(tcb != nullptr){
+        removeFromReadyQueue(tid);
+        tcb->setState(BLOCK);
+        addToQueue(block_queue, tcb);
+        enableIntreupts();
+        return 0;
+    }
 
     enableInterrupts();
-    return 0;
+    return -1;
 }
 
 int uthread_resume(int tid) {
     // Move the thread specified by tid back to the ready queue
+
+    disableInterrupts();
+    for(std::deque<TCB *>::iterator iter = block_queue.begin(); iter != block_queue.end(); ++iter){
+        if(tid == (*iter)->getId())
+        {
+            (*iter)->setState(READY);
+            addToQueue(ready_queue, (*iter));
+            block_queue.erase(iter);
+            enableInterrupts();
+            return 0;
+        }
+    }
+    enableInterrupts();
+    return -1;
+    
 }
 
 int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
@@ -342,6 +374,17 @@ int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
     // the init_routine
     // Pay attention to what needs to be accessed and modified in a critical
     // region (critical meaning interrupts disabled)
+
+    disableInterrupts();
+    // Check if init_routine has already been executed
+    if(once_control->executed == 0){
+        init_routine();
+        once_control->executed = 1;
+    }
+
+    enableInterrupts();
+
+    return 0;
 }
 
 int uthread_self() {
