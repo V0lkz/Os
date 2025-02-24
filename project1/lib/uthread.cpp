@@ -328,7 +328,7 @@ int uthread_suspend(int tid) {
     // get from ready queue
     // remove from ready queue
     // add to block queue
-   if(current_thread->getId() == tid)){
+   if(current_thread->getId() == tid){
        current_thread->setState(BLOCK);
        addToQueue(block_queue, current_thread);
        uthread_yield();
@@ -342,7 +342,7 @@ int uthread_suspend(int tid) {
         removeFromReadyQueue(tid);
         tcb->setState(BLOCK);
         addToQueue(block_queue, tcb);
-        enableIntreupts();
+        enableInterrupts();
         return 0;
     }
 
@@ -377,9 +377,9 @@ int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
 
     disableInterrupts();
     // Check if init_routine has already been executed
-    if(once_control->executed == 0){
+    if(once_control->execution_status == UTHREAD_ONCE_NOT_EXECUTED){
         init_routine();
-        once_control->executed = 1;
+        once_control->execution_status = UTHREAD_ONCE_EXECUTED;
     }
 
     enableInterrupts();
