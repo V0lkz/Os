@@ -47,12 +47,22 @@ int uthread_yield(void);
 // Does not return to caller. If this is the main thread, exit the program
 void uthread_exit(void *retval);
 
-/* Suspend a thread */
-// Return 0 on success, -1 on failure
+/**
+ * Suspends a thread
+ *
+ * Moves the thread specified by tid into BLOCK queue
+ * @param tid id of thread to suspend
+ * @return 0 on succcess, -1 if thread has finished or does not exist
+ */
 int uthread_suspend(int tid);
 
-/* Resume a thread */
-// Return 0 on success, -1 on failure
+/**
+ * Resumes a thread
+ *
+ * Moves the thread specified by tid into the READY queue
+ * @param tid if of thread to resume
+ * @return 0 on sucess, -1 on failure
+ */
 int uthread_resume(int tid);
 
 /* Get the id of the calling thread */

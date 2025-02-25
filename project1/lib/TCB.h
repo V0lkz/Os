@@ -92,14 +92,19 @@ public:
      */
     void *getReturnValue() const;
 
+    void setJoinId(int tid);
+
+    int getJoinId() const;
+
     ucontext_t _context;    // The thread's saved context
 
 private:
-    int _tid;                              // The thread id number.
-    Priority _pr;                          // The priority of the thread (Red, orange or green)
-    int _quantum;                          // The time interval, as explained in the pdf.
+    int _tid;                              // The thread id number
+    Priority _pr;                          // The priority of the thread
+    int _quantum;                          // The time interval
     State _state;                          // The state of the thread
     char *_stack;                          // The thread's stack
+    int _join_id;                          // Thread id current thread is joining on
     void *_retval;                         // The thread's return value
     void *(*_start_routine)(void *arg);    // The thread's function
 };

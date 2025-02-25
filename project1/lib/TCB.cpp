@@ -3,7 +3,7 @@
 #include <ucontext.h>
 
 TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, State state)
-    : _tid(tid), _pr(pr), _quantum(0), _state(state), _retval(NULL) {
+    : _tid(tid), _pr(pr), _quantum(0), _state(state), _join_id(-1), _retval(NULL) {
     // Save current context
     if (getcontext(&_context) != 0) {
         throw std::runtime_error("getcontext");
@@ -57,4 +57,12 @@ void TCB::setReturnValue(void *retval) {
 
 void *TCB::getReturnValue() const {
     return _retval;
+}
+
+void TCB::setJoinId(int tid) {
+    _join_id = tid;
+}
+
+int TCB::getJoinId() const {
+    return _join_id;
 }
