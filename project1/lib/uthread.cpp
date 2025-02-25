@@ -146,6 +146,10 @@ static int switchThreads() {
         return -1;
     }
 
+#if DEBUG
+    std::cerr << "flag: " << flag << std::endl;
+#endif
+
     // The resumed thread returns here
     if (flag == 1) {
         return 0;
@@ -153,16 +157,17 @@ static int switchThreads() {
 
     // Select new thread to run
     current_thread = popFromReadyQueue();
+    flag = 1;
+
 #if DEBUG
-    std::cerr << "Switched to thread " << current_thread->getId() << "flag: " << flag << "\n";
+    std::cerr << "Switched to thread " << current_thread->getId() << ", flag: " << flag << "\n";
 #endif
+
     if (setcontext(&current_thread->_context) != 0) {
         addToQueue(ready_queue, current_thread);
         perror("setcontext");
         return -1;
     }
-
-    flag = 1;
     return 0;
 }
 
@@ -261,8 +266,8 @@ int uthread_join(int tid, void **retval) {
     disableInterrupts();
 
 #if DEBUG
-    std::cerr << "uthread_join() called by thread " << current_thread->getId()
-              << " waiting for thread " << tid << ".\n";
+    fprintf(stderr, "uthread_join(s) called by tid %d, waiting for tid %d\n",
+            current_thread->getId(), tid);
 #endif
 
     // Check if thread is trying to join itself
@@ -313,11 +318,8 @@ int uthread_yield(void) {
     disableInterrupts();
 
 #if DEBUG
-    std::cerr << "Thread " << current_thread->getId()
-              << " is yielding. Ready queue size: " << ready_queue.size() << "\n";
-    if (ready_queue.empty()) {
-        std::cerr << "NOTICE: uthread_yield() called but no ready threads exist!\n";
-    }
+    fprintf(stderr, "Yielding tid %d, ready queue size: %ld\n", current_thread->getId(),
+            ready_queue.size());
 #endif
 
     TCB *old_thread = current_thread;
@@ -337,8 +339,11 @@ int uthread_yield(void) {
 
     // Set thread to RUNNING and start timer
     current_thread->setState(RUNNING);
-    std::cout << "Thread " << current_thread->getId() << " resumed execution.\n";
     startInterruptTimer();
+
+#if DEBUG
+    fprintf(stderr, "tid %d resumed execution\n", current_thread->getId());
+#endif
 
     enableInterrupts();
 

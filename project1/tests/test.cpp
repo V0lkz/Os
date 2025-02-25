@@ -15,7 +15,7 @@ void *func1(void *arg) {
 }
 
 void test(int i) {
-    std::cout << "Test: " << i << std::endl;
+    std::cout << "---------- Test: " << i << " ----------" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
