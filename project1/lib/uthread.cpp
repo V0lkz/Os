@@ -98,10 +98,12 @@ void addToQueue(std::deque<TCB *> &queue, TCB *tcb) {
 // Removes and returns the first TCB on the ready queue
 // NOTE: Assumes at least one thread on the ready queue
 TCB *popFromReadyQueue() {
+#if DEBUG
     if (ready_queue.empty()) {
         std::cerr << "ERROR: popFromReadyQueue() called when ready_queue is empty!\n";
         exit(1);
     }
+#endif
 
     TCB *ready_queue_head = ready_queue.front();
     ready_queue.pop_front();
@@ -246,7 +248,10 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
         std::cerr << "TCB Consturctor: " << e.what() << std::endl;
         return -1;
     }
-    std::cout << "Thread " << tid << " created and added to ready queue.\n";
+
+#if DEBUG
+    std::cerr << "Thread " << tid << " created and added to ready queue.\n";
+#endif
 
     enableInterrupts();
     return tid;
@@ -268,7 +273,7 @@ int uthread_join(int tid, void **retval) {
     // Check if thread is in the READY queue
     TCB *tcb = getFromQueue(ready_queue, tid);
     if (tcb != nullptr) {
-        uthread_suspend(current_thread->getId());
+        current_thread->setState(BLOCK);
         current_thread->setJoinId(tid);
         addToQueue(block_queue, current_thread);
         // Call switch threads directly to switch to another thread
@@ -366,14 +371,20 @@ void uthread_exit(void *retval) {
     // Iterate block queue to check if thread needs to be joined
     std::deque<TCB *>::iterator iter;
     for (iter = block_queue.begin(); iter != block_queue.end(); iter++) {
+        fprintf(stderr, "iter: %p\n", iter);
+        fprintf(stderr, "tid: %d\n", (*iter)->getId());
         if ((*iter)->getJoinId() == current_tid) {
             // Move waiting thread from BLOCK queue to READY queue
             block_queue.erase(iter);
             addToQueue(ready_queue, *iter);
         }
     }
+    fprintf(stderr, "out\n");
 
-    switchThreads();
+    // Switch to a new thread
+    if (switchThreads() != 0) {
+        throw std::runtime_error("Failed to exit thread\n");
+    }
     enableInterrupts();
 }
 
