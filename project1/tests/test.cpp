@@ -10,7 +10,7 @@ void *func2(void *arg) {
 }
 
 void *func1(void *arg) {
-    std::cout << "Thread: " << uthread_self() << std::endl;
+    std::cout << "Thread Running: " << uthread_self() << std::endl;
     return NULL;
 }
 

@@ -8,6 +8,8 @@
 
 #include "TCB.h"
 
+#define DEBUG 1
+
 // // Finished queue entry type
 // typedef struct finished_queue_entry {
 //     TCB *tcb;        // Pointer to TCB
@@ -124,17 +126,19 @@ int removeFromQueue(std::deque<TCB *> &queue, int tid) {
 
 // Switch to the next ready thread
 static int switchThreads() {
-    // Flag to keep track of the resumed thread
-    std::cout << "Switching threads. Ready queue size: " << ready_queue.size() << "\n";
-    volatile int flag = 0;
-
-    // Save old thread context
+#if DEBUG
+    std::cerr << "Switching threads. Ready queue size: " << ready_queue.size() << "\n";
     if (ready_queue.empty()) {
         std::cerr << "ERROR: switchThreads() called but no threads are in ready queue!\n";
         enableInterrupts();
-        return -1;  // Prevents crashing
+        return -1;    // Prevents crashing
     }
+#endif
 
+    // Flag to keep track of the resumed thread
+    volatile int flag = 0;
+
+    // Save old thread context
     if (getcontext(&current_thread->_context) != 0) {
         perror("getcontext");
         return -1;
@@ -147,7 +151,9 @@ static int switchThreads() {
 
     // Select new thread to run
     current_thread = popFromReadyQueue();
-    std::cout << "Switched to thread " << current_thread->getId() << "\n";
+#if DEBUG
+    std::cerr << "Switched to thread " << current_thread->getId() << "\n";
+#endif
     if (setcontext(&current_thread->_context) != 0) {
         addToQueue(ready_queue, current_thread);
         perror("setcontext");
@@ -248,7 +254,11 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
 
 int uthread_join(int tid, void **retval) {
     disableInterrupts();
-    std::cout << "uthread_join() called by thread " << current_thread->getId() << " waiting for thread " << tid << ".\n";
+
+#if DEBUG
+    std::cerr << "uthread_join() called by thread " << current_thread->getId()
+              << " waiting for thread " << tid << ".\n";
+#endif
 
     // Check if thread is trying to join itself
     if (current_thread->getId() == tid) {
@@ -294,17 +304,19 @@ int uthread_join(int tid, void **retval) {
 
 int uthread_yield(void) {
     // Keep track of calling thread for error handling
-    std::cout << "Thread " << current_thread->getId() << " is yielding. Ready queue size: " << ready_queue.size() << "\n";
+
+    disableInterrupts();
+
+#if DEBUG
+    std::cerr << "Thread " << current_thread->getId()
+              << " is yielding. Ready queue size: " << ready_queue.size() << "\n";
     if (ready_queue.empty()) {
-        std::cerr << "WARNING: uthread_yield() called but no ready threads exist!\n";
-        enableInterrupts();
-        return -1;
+        std::cerr << "NOTICE: uthread_yield() called but no ready threads exist!\n";
     }
+#endif
 
     TCB *old_thread = current_thread;
     int ret_val = 0;
-
-    disableInterrupts();
 
     // Add current thread to ready queue
     current_thread->setState(READY);
@@ -320,7 +332,7 @@ int uthread_yield(void) {
 
     // Set thread to RUNNING and start timer
     current_thread->setState(RUNNING);
-     std::cout << "Thread " << current_thread->getId() << " resumed execution.\n";
+    std::cout << "Thread " << current_thread->getId() << " resumed execution.\n";
     startInterruptTimer();
 
     enableInterrupts();
@@ -333,7 +345,11 @@ void uthread_exit(void *retval) {
     // Move any threads joined on this thread back to the ready queue
     // Move this thread to the finished queue
     disableInterrupts();
-    std::cout << "Thread " << current_thread->getId() << " is exiting.\n";
+
+#if DEBUG
+    std::cerr << "Thread " << current_thread->getId() << " is exiting.\n";
+#endif
+
     // Check if calling thread is main thread
     if (current_thread == main_thread) {
         exit(0);    // ??
@@ -357,6 +373,7 @@ void uthread_exit(void *retval) {
         }
     }
 
+    switchThreads();
     enableInterrupts();
 }
 
