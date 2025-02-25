@@ -258,7 +258,7 @@ int uthread_join(int tid, void **retval) {
     // Check if thread is in the READY queue
     TCB *tcb = getFromQueue(ready_queue, tid);
     if (tcb != nullptr) {
-        current_thread->setState(BLOCK);
+        uthread_suspend(current_thread->getId());
         current_thread->setJoinId(tid);
         addToQueue(block_queue, current_thread);
         // Call switch threads directly to switch to another thread
