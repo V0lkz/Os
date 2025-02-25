@@ -154,7 +154,7 @@ static int switchThreads() {
     // Select new thread to run
     current_thread = popFromReadyQueue();
 #if DEBUG
-    std::cerr << "Switched to thread " << current_thread->getId() << "\n";
+    std::cerr << "Switched to thread " << current_thread->getId() << "flag: " << flag << "\n";
 #endif
     if (setcontext(&current_thread->_context) != 0) {
         addToQueue(ready_queue, current_thread);
@@ -371,15 +371,13 @@ void uthread_exit(void *retval) {
     // Iterate block queue to check if thread needs to be joined
     std::deque<TCB *>::iterator iter;
     for (iter = block_queue.begin(); iter != block_queue.end(); iter++) {
-        fprintf(stderr, "iter: %p\n", iter);
-        fprintf(stderr, "tid: %d\n", (*iter)->getId());
         if ((*iter)->getJoinId() == current_tid) {
             // Move waiting thread from BLOCK queue to READY queue
             block_queue.erase(iter);
             addToQueue(ready_queue, *iter);
+            break;
         }
     }
-    fprintf(stderr, "out\n");
 
     // Switch to a new thread
     if (switchThreads() != 0) {
