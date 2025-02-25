@@ -20,16 +20,6 @@
 //     int waiting_for_tid;    // TID this thread is waiting on
 // } join_queue_entry_t;
 
-// You will need to maintain structures to track the state of threads
-// - uthread library functions refer to threads by their TID so you will want
-//   to be able to access a TCB given a thread ID
-// - Threads move between different states in their lifetime (READY, BLOCK,
-//   FINISH). You will want to maintain separate "queues" (doesn't have to
-//   be that data structure) to move TCBs between different thread queues.
-//   Starter code for a ready queue is provided to you
-// - Separate join and finished "queues" can also help when supporting joining.
-//   Example join and finished queue entry types are provided above
-
 // Global Variables  -----------------------------------------------------------
 
 // Queues
@@ -329,6 +319,7 @@ void uthread_exit(void *retval) {
 }
 
 int uthread_suspend(int tid) {
+    // Moves the thread specified by tid into BLOCK queue
     int ret_val = -1;
     TCB *tcb;
 
@@ -358,6 +349,7 @@ int uthread_suspend(int tid) {
 }
 
 int uthread_resume(int tid) {
+    // Moves the thread specified by tid into the READY queue
     disableInterrupts();
 
     // Iterate through BLOCK queue for tid
