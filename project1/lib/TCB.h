@@ -16,7 +16,7 @@
 
 #include "uthread.h"
 
-extern void stub(void *(*start_routine)(void *), void *arg);
+extern "C" void stub(void *(*start_routine)(void *), void *arg);
 
 enum State {
     READY,
@@ -42,58 +42,67 @@ public:
     TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, State state);
 
     /**
-     * thread d-tor
+     * TCB destructor
      */
     ~TCB();
 
     /**
-     * function to set the thread state
+     * Set the thread state
      * @param state the new state for our thread
      */
     void setState(State state);
 
     /**
-     * function that get the state of the thread
+     * Get the state of the thread
      * @return the current state of the thread
      */
     State getState() const;
 
     /**
-     * function that get the ID of the thread
+     * Get the ID of the thread
      * @return the ID of the thread
      */
     int getId() const;
 
     /**
-     * function that get the priority of the thread
+     * Get the priority of the thread
      * @return the priority of the thread
      */
     Priority getPriority() const;
 
     /**
-     * function to increase the quantum of the thread
+     * Increase the quantum of the thread
      */
     void increaseQuantum();
 
     /**
-     * function that get the quantum of the thread
+     * Get the quantum of the thread
      * @return the current quantum of the thread
      */
     int getQuantum() const;
 
     /**
-     * function that set and get the return value of the thread
+     * Set the return value of the thread
      * @param retval the return value of the thread
      */
     void setReturnValue(void *retval);
 
     /**
-     * function that get the return value of the thread
+     * Get the return value of the thread
+     * @return (void *) retval
      */
     void *getReturnValue() const;
 
+    /**
+     * Set thread to join on
+     * @param tid thread id of thread to join
+     */
     void setJoinId(int tid);
 
+    /**
+     * Get the tid of thread to join on
+     * @return tid to join on, otherwise -1
+     */
     int getJoinId() const;
 
     ucontext_t _context;    // The thread's saved context
