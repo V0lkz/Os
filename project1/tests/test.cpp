@@ -5,11 +5,22 @@
 
 #include "../lib/uthread.h"
 
+void *func6(void *arg) {
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 100000000; j++) {
+            ;    // Nop
+        }
+        uthread_yield();
+    }
+    return NULL;
+}
+
 void *func5(void *arg) {
-    long i = 0;
-    long end = 100000000000000L * uthread_self();
-    while (i < end) {
-        i++;
+    size_t i = 0;
+    for (; i < 1000000L; i++) {
+        for (size_t j = 0; j < 100000L; j++) {
+            ;    // Nop
+        }
     }
     return (void *) (i);
 }
@@ -97,6 +108,27 @@ int main(int argc, char *argv[]) {
                   << ", Quantum: " << uthread_get_quantums(tid5[i]) << std::endl;
     }
     std::cout << uthread_get_total_quantums() << std::endl;
+
+    std::cerr << std::endl;
+
+    test(6);    // Test voluntary yeild
+
+    int tid6[3];
+    for (int i = 0; i < 3; i++) {
+        tid6[i] = uthread_create(func6, NULL);
+    }
+
+    // Yield the main thread
+    uthread_yield();
+
+    for (int i = 0; i < 3; i++) {
+        std::cout << uthread_get_quantums(tid6[i]) << std::endl;
+        uthread_join(tid6[i], NULL);
+    }
+
+    std::cout << "Total quantums: " << uthread_get_total_quantums() << std::endl;
+
+    std::cerr << std::endl;
 
     return 0;
 }

@@ -227,10 +227,10 @@ int uthread_init(int quantum_usecs) {
     tid_num = 1;
 
     // Initialize itimer data sturcture
-    itimer.it_value.tv_sec = quantum_usecs / 1000000;
-    itimer.it_value.tv_usec = quantum_usecs % 1000000;
     itimer.it_interval.tv_sec = quantum_usecs / 1000000;
     itimer.it_interval.tv_usec = quantum_usecs % 1000000;
+    itimer.it_value.tv_sec = itimer.it_interval.tv_sec;
+    itimer.it_value.tv_usec = itimer.it_interval.tv_usec;
 
     // Set up signal handler for SIGVTALRM
     struct sigaction sac;
@@ -316,13 +316,13 @@ int uthread_join(int tid, void **retval) {
     }
 
     // Check if thread is in the FINISH queue
-    for (auto iter = finish_queue.begin(); iter != finish_queue.end(); ) {
+    for (auto iter = finish_queue.begin(); iter != finish_queue.end();) {
         if ((*iter)->getId() == tid) {
             if (retval != nullptr) {
                 *retval = (*iter)->getReturnValue();
             }
             delete (*iter);
-            iter = finish_queue.erase(iter);  
+            iter = finish_queue.erase(iter);
             enableInterrupts();
             return 0;
         } else {
@@ -331,7 +331,7 @@ int uthread_join(int tid, void **retval) {
     }
 
     enableInterrupts();
-    return -1;  
+    return -1;
 }
 
 int uthread_yield(void) {
