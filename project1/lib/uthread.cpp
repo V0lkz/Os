@@ -195,7 +195,7 @@ void stub(void *(*start_routine)(void *), void *arg) {
 #if DEBUG
     fprintf(stderr, "Thread %d entering function\n", current_thread->getId());
 #endif
-    disableInterrupts();                  // Ensure interrupts are disabled
+    enableInterrupts();                   // Ensure interrupts are enabled
     void *retval = start_routine(arg);    // Call start routine
     uthread_exit(retval);                 // Call exit if start_routine did not
 }
