@@ -7,7 +7,8 @@
 
 void *func5(void *arg) {
     long i = 0;
-    while (uthread_get_quantums(uthread_self()) < 10) {
+    long end = 100000000000000L * uthread_self();
+    while (i < end) {
         i++;
     }
     return (void *) (i);
@@ -27,8 +28,7 @@ void test(int i) {
 }
 
 int main(int argc, char *argv[]) {
-    /* Initialize the default time slice (only overridden if passed in) */
-    int quantum_usecs = 1e6;
+    int quantum_usecs = 1000;    // 1 ms quantums
 
     void *retval = nullptr;
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 5; i++) {
         void *retval;
         uthread_join(tid5[i], &retval);
-        std::cout << "Thread: " << tid5[i] << ", Time: " << (long) (retval)
+        std::cout << "Thread: " << tid5[i] << ", Loop: " << (long) (retval)
                   << ", Quantum: " << uthread_get_quantums(tid5[i]) << std::endl;
     }
     std::cout << uthread_get_total_quantums() << std::endl;
