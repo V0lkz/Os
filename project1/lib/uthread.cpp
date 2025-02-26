@@ -10,7 +10,7 @@
 
 #include "TCB.h"
 
-#define DEBUG 0
+#define DEBUG 1
 #if DEBUG
 // Debug function to print all threads in given queue
 void printQueue(std::deque<TCB *> &queue) {
@@ -33,7 +33,6 @@ static std::deque<TCB *> finish_queue;
 static struct itimerval itimer;
 static sigset_t block_set;
 static int total_quantums;
-static int quantum;
 
 // TCBs
 static int total_threads;
@@ -49,9 +48,7 @@ static void handle_vtalrm(int signum) {
 #if DEBUG
     fprintf(stderr, "SIGVTARLM Caught\n");
 #endif
-    // Increase quantum count whenever timer goes off
-    total_quantums++;
-    current_thread->increaseQuantum();
+    // Yield the current thread
     if (uthread_yield() != 0) {
         throw std::runtime_error("uthread_yield");
     }
@@ -214,12 +211,11 @@ int uthread_init(int quantum_usecs) {
     }
 
     total_quantums = 0;
-    quantum = quantum_usecs;
 
     // Create TCB for main thread
     // Main thread will have tid 0
     try {
-        main_thread = new TCB(0, GREEN, NULL, NULL, READY);
+        main_thread = new TCB(0, GREEN, NULL, NULL, RUNNING);
     } catch (const std::exception &e) {
         std::cerr << "TCB: " << e.what() << std::strerror(errno) << std::endl;
         return -1;
@@ -237,11 +233,7 @@ int uthread_init(int quantum_usecs) {
 
     // Set up signal handler for SIGVTALRM
     struct sigaction sac;
-    if (sigfillset(&sac.sa_mask) != 0) {
-        perror("sigfillset");
-        delete main_thread;
-        return -1;
-    }
+    sac.sa_mask = block_set;
     sac.sa_flags = 0;
     sac.sa_handler = handle_vtalrm;
     if (sigaction(SIGVTALRM, &sac, NULL) != 0) {
@@ -299,13 +291,6 @@ int uthread_join(int tid, void **retval) {
         return -1;
     }
 
-    // // Check if thread exists at all (return -1 if invalid)
-    // if (getFromQueue(ready_queue, tid) == nullptr && getFromQueue(finish_queue, tid) == nullptr)
-    // {
-    //     enableInterrupts();
-    //     return -1;
-    // }
-
     // Check if thread is in the READY queue
     TCB *tcb = getFromQueue(ready_queue, tid);
     if (tcb != nullptr) {
@@ -358,6 +343,8 @@ int uthread_yield(void) {
     // Add current thread to ready queue
     current_thread->setState(READY);
     addToQueue(ready_queue, current_thread);
+    current_thread->increaseQuantum();
+    total_quantums++;
 
     // Switch to new thread
     if (switchThreads() != 0) {
@@ -397,6 +384,10 @@ void uthread_exit(void *retval) {
     current_thread->setReturnValue(retval);
     addToQueue(finish_queue, current_thread);
 
+    // Increase thread quantum and total quantums
+    current_thread->increaseQuantum();    // Not nessessary
+    total_quantums++;
+
     // Get current thread id
     int current_tid = current_thread->getId();
 
@@ -405,7 +396,7 @@ void uthread_exit(void *retval) {
     for (iter = block_queue.begin(); iter != block_queue.end(); iter++) {
         if (current_tid = (*iter)->getJoinId()) {
             // Move waiting thread from BLOCK queue to READY queue
-            addToQueue(ready_queue, *iter);
+            addToQueue(ready_queue, (*iter));
             block_queue.erase(iter);
             break;
         }
@@ -413,6 +404,7 @@ void uthread_exit(void *retval) {
 
     // Switch to a new thread
     if (switchThreads() != 0) {
+        // Cannot recover from a thread failing to switch
         throw std::runtime_error("Failed to exit thread");
     }
     enableInterrupts();
@@ -420,7 +412,6 @@ void uthread_exit(void *retval) {
 
 int uthread_suspend(int tid) {
     // Moves the thread specified by tid into BLOCK queue
-    int ret_val = -1;
     TCB *tcb;
 
     disableInterrupts();
@@ -430,28 +421,34 @@ int uthread_suspend(int tid) {
         current_thread->setState(BLOCK);
         addToQueue(block_queue, current_thread);
         // Switch to new thread
+        int ret_val = 0;
         if (switchThreads() != 0) {
             current_thread->setState(RUNNING);
             removeFromQueue(block_queue, current_thread->getId());
-        } else {
-            ret_val = 0;
+            ret_val = -1;
         }
+        enableInterrupts();
+        return ret_val;
     }
+
     // Check READY queue for thread
-    else if ((tcb = getFromQueue(ready_queue, tid)) != nullptr) {
+    if ((tcb = getFromQueue(ready_queue, tid)) != nullptr) {
         removeFromQueue(ready_queue, tid);
         tcb->setState(BLOCK);
         addToQueue(block_queue, tcb);
-        ret_val = 0;
+        enableInterrupts();
+        return 0;
     }
+
     // Check BLOCK queue for thread
-    else if ((tcb = getFromQueue(block_queue, tid)) != nullptr) {
+    if ((tcb = getFromQueue(block_queue, tid)) != nullptr) {
         // Do nothing if thread is already in BLOCK queue
-        ret_val = 0;
+        enableInterrupts();
+        return 0;
     }
 
     enableInterrupts();
-    return ret_val;
+    return -1;
 }
 
 int uthread_resume(int tid) {
@@ -480,7 +477,7 @@ int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
 
     // Check if init_routine has already been executed
     if (once_control->execution_status == UTHREAD_ONCE_NOT_EXECUTED) {
-        // Set as exuctued and run init_routine
+        // Run init_routine and set as executed
         init_routine();
         once_control->execution_status = UTHREAD_ONCE_EXECUTED;
     }
