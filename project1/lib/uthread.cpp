@@ -9,6 +9,16 @@
 #include "TCB.h"
 
 #define DEBUG 1
+#if DEBUG
+// Debug function to print all threads in given queue
+void printQueue(std::deque<TCB *> &queue) {
+    std::deque<TCB *>::iterator iter;
+    for (iter = queue.begin(); iter != queue.end(); iter++) {
+        fprintf(stderr, "%d ", (*iter)->getId());
+    }
+    fprintf(stderr, "\n");
+}
+#endif
 
 // // Finished queue entry type
 // typedef struct finished_queue_entry {
@@ -46,6 +56,9 @@ static TCB *main_thread;
 
 // Signal handler for SIGVTALRM
 static void handle_vtalrm(int signum) {
+#if DEBUG
+    fprintf(stderr, "SIGVTARLM Caught\n");
+#endif
     // Increase quantum count whenever timer goes off
     total_quantums++;
     uthread_yield();
@@ -53,6 +66,9 @@ static void handle_vtalrm(int signum) {
 
 // Start a countdown timer to fire an interrupt
 static void startInterruptTimer() {
+#if DEBUG
+    fprintf(stderr, "Interrupt timer started\n");
+#endif
     if (setitimer(ITIMER_VIRTUAL, &itimer, NULL) != 0) {
         perror("setitimer");
         // Rip
@@ -129,7 +145,9 @@ int removeFromQueue(std::deque<TCB *> &queue, int tid) {
 // Switch to the next ready thread
 static int switchThreads() {
 #if DEBUG
-    std::cerr << "Switching threads. Ready queue size: " << ready_queue.size() << "\n";
+    fprintf(stderr, "Switching threads. Ready queue size: %ld\n", ready_queue.size());
+    fprintf(stderr, "Current tid: %d, ready queue: ", current_thread->getId());
+    printQueue(ready_queue);
     if (ready_queue.empty()) {
         std::cerr << "ERROR: switchThreads() called but no threads are in ready queue!\n";
         enableInterrupts();
@@ -147,7 +165,7 @@ static int switchThreads() {
     }
 
 #if DEBUG
-    std::cerr << "flag: " << flag << std::endl;
+    fprintf(stderr, "flag: %d\n", flag);
 #endif
 
     // The resumed thread returns here
@@ -160,7 +178,7 @@ static int switchThreads() {
     flag = 1;
 
 #if DEBUG
-    std::cerr << "Switched to thread " << current_thread->getId() << ", flag: " << flag << "\n";
+    fprintf(stderr, "Switched to tid %d, flag = %d\n", current_thread->getId(), flag);
 #endif
 
     if (setcontext(&current_thread->_context) != 0) {
