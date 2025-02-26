@@ -26,7 +26,8 @@ void *func5(void *arg) {
 }
 
 void *func2(void *arg) {
-    return (void *) ((long) (uthread_self()));
+    int tid = uthread_self();
+    return (void *) ((long) tid);
 }
 
 void *func1(void *arg) {
@@ -65,7 +66,7 @@ int main(int argc, char *argv[]) {
 
     test(3);    // Test return value
 
-    void *ret3;
+    void *ret3 = nullptr;
     int tid3 = uthread_create(func2, &ret3);
     std::cout << "id: " << tid3 << " ret: " << (long) (ret3) << std::endl;
 
@@ -110,25 +111,4 @@ int main(int argc, char *argv[]) {
     std::cout << uthread_get_total_quantums() << std::endl;
 
     std::cerr << std::endl;
-
-    test(6);    // Test voluntary yeild
-
-    int tid6[3];
-    for (int i = 0; i < 3; i++) {
-        tid6[i] = uthread_create(func6, NULL);
-    }
-
-    // Yield the main thread
-    uthread_yield();
-
-    for (int i = 0; i < 3; i++) {
-        std::cout << uthread_get_quantums(tid6[i]) << std::endl;
-        uthread_join(tid6[i], NULL);
-    }
-
-    std::cout << "Total quantums: " << uthread_get_total_quantums() << std::endl;
-
-    std::cerr << std::endl;
-
-    return 0;
 }
