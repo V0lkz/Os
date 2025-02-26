@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Total quantums: " << uthread_get_total_quantums() << std::endl;
 
     std::cerr << std::endl;
-
+    
+    uthread_exit(NULL);
     return 0;
 }
