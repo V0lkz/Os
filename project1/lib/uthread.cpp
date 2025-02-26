@@ -10,7 +10,7 @@
 
 #include "TCB.h"
 
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG
 // Debug function to print all threads in given queue
 void printQueue(std::deque<TCB *> &queue) {
@@ -332,6 +332,7 @@ int uthread_join(int tid, void **retval) {
             }
             delete (*iter);
             finish_queue.erase(iter);
+            total_threads--;
             enableInterrupts();
             return 0;
         }
@@ -474,14 +475,12 @@ int uthread_resume(int tid) {
 }
 
 int uthread_once(uthread_once_t *once_control, void (*init_routine)(void)) {
-    // Use the once_control structure to determine whether or not to execute
-    // the init_routine
-    // Pay attention to what needs to be accessed and modified in a critical
-    // region (critical meaning interrupts disabled)
-
+    // init_routine will be ran in the critical section
     disableInterrupts();
+
     // Check if init_routine has already been executed
     if (once_control->execution_status == UTHREAD_ONCE_NOT_EXECUTED) {
+        // Set as exuctued and run init_routine
         init_routine();
         once_control->execution_status = UTHREAD_ONCE_EXECUTED;
     }

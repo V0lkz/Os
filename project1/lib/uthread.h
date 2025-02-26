@@ -86,8 +86,8 @@ int uthread_self(void);
 
 /**
  * Exceute the init_routine only once of a set of threads
- * @param once_control
- * @param init_routine
+ * @param once_control control block containing executation status
+ * @param init_routine routine to execute
  * @return 0 if init_routine is executed, 1 on failure
  */
 int uthread_once(uthread_once_t *once_control, void (*init_routine)(void));
