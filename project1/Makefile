@@ -6,6 +6,8 @@ TEST_DIR = tests
 
 OBJ_FILES = $(LIB_DIR)/TCB.o $(LIB_DIR)/uthread.o
 
+all: pi test
+
 pi: $(TEST_DIR)/pi.cpp $(OBJ_FILES)
 	$(CC) $(CFLAGS) $^ -o $@
 
