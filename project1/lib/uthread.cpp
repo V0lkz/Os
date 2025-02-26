@@ -70,6 +70,9 @@ static void startInterruptTimer() {
 
 // Block signals from firing timer interrupt
 static void disableInterrupts() {
+#if DEBUG
+    fprintf(stderr, "SIGVTALRM is now BLOCKED\n");
+#endif
     // Add SIGVTALRM to current signal mask
     if (sigprocmask(SIG_BLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
@@ -79,6 +82,9 @@ static void disableInterrupts() {
 
 // Unblock signals to re-enable timer interrupt
 static void enableInterrupts() {
+#if DEBUG
+    fprintf(stderr, "SIGVTALRM is now UNBLOCKED\n");
+#endif
     // Remove SIGVTALRM from current signal mask
     if (sigprocmask(SIG_UNBLOCK, &block_set, NULL) != 0) {
         perror("sigprocmask");
@@ -186,7 +192,10 @@ static int switchThreads() {
 
 // Starting point for thread. Calls top-level thread function
 void stub(void *(*start_routine)(void *), void *arg) {
-    // disableInterrupts();                  // Ensure interrupts are disabled
+#if DEBUG
+    fprintf(stderr, "Thread %d entering function\n", current_thread->getId());
+#endif
+    disableInterrupts();                  // Ensure interrupts are disabled
     void *retval = start_routine(arg);    // Call start routine
     uthread_exit(retval);                 // Call exit if start_routine did not
 }
