@@ -1,9 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <iostream>
-
 #include "../lib/uthread.h"
+
+uthread_once_t uthread_once_control = UTHREAD_ONCE_INIT; 
+int once_count = 0;
+
+void init_function(){
+    once_count++;
+}
+
+
+void *thread_once_function(void *arg) {
+    uthread_once(&uthread_once_control, init_function);
+    return NULL;
+}
 
 void *func6(void *arg) {
     for (size_t i = 0; i < 5; i++) {
@@ -111,7 +122,6 @@ int main(int argc, char *argv[]) {
     std::cout << uthread_get_total_quantums() << std::endl;
 
     std::cerr << std::endl;
-    return 0;
 
     test(6);    // Test voluntary yeild
 
@@ -131,7 +141,26 @@ int main(int argc, char *argv[]) {
     std::cout << "Total quantums: " << uthread_get_total_quantums() << std::endl;
 
     std::cerr << std::endl;
+
+    test(7);
     
+    int tid7[4];
+    
+    for (int i = 0; i < 4; i++) {
+        tid7[i] = uthread_create(thread_once_function, NULL);
+    }
+    for (int i = 0; i < 4; i++) {
+        uthread_join(tid7[i], NULL);
+    }
+
+
+    if (once_count == 1) {
+        std::cout << "Test 7 completed" << std::endl;
+    } else {
+        std::cerr << "Test 7 failed " << std::endl;
+    }
+
+   
     uthread_exit(NULL);
     return 0;
 }
