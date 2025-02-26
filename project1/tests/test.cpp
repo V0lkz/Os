@@ -17,8 +17,8 @@ void *func6(void *arg) {
 
 void *func5(void *arg) {
     size_t i = 0;
-    for (; i < 1000000L; i++) {
-        for (size_t j = 0; j < 100000L; j++) {
+    for (; i < 1000000; i++) {
+        for (size_t j = 0; j < 100000; j++) {
             ;    // Nop
         }
     }
@@ -39,7 +39,7 @@ void test(int i) {
 }
 
 int main(int argc, char *argv[]) {
-    int quantum_usecs = 1000;    // 1 ms quantums
+    int quantum_usecs = 100000;    // 100 ms quantums
 
     void *retval = nullptr;
 
