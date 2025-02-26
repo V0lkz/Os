@@ -269,7 +269,7 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
     }
 
 #if DEBUG
-    fprintf(stderr, "Thread %d created and added to READY queue.\n");
+    fprintf(stderr, "Thread %d created and added to READY queue.\n", current_thread->getId());
 #endif
 
     enableInterrupts();
