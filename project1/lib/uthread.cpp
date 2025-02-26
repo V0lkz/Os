@@ -279,7 +279,6 @@ int uthread_create(void *(*start_routine)(void *), void *arg) {
     enableInterrupts();
     return tid;
 }
-
 int uthread_join(int tid, void **retval) {
     disableInterrupts();
 
@@ -290,6 +289,13 @@ int uthread_join(int tid, void **retval) {
 
     // Check if thread is trying to join itself
     if (current_thread->getId() == tid) {
+        enableInterrupts();
+        return -1;
+    }
+
+    // Check if thread exists at all (return -1 if invalid)
+    if (getFromQueue(ready_queue, tid) == nullptr && getFromQueue(finish_queue, tid) == nullptr) {
+        enableInterrupts();
         return -1;
     }
 
@@ -299,9 +305,8 @@ int uthread_join(int tid, void **retval) {
         current_thread->setState(BLOCK);
         current_thread->setJoinId(tid);
         addToQueue(block_queue, current_thread);
-        // Call switch threads directly to switch to another thread
+
         if (switchThreads() != 0) {
-            // Remove from BLOCK queue on failure
             current_thread->setState(RUNNING);
             current_thread->setJoinId(-1);
             removeFromQueue(block_queue, current_thread->getId());
@@ -311,23 +316,22 @@ int uthread_join(int tid, void **retval) {
     }
 
     // Check if thread is in the FINISH queue
-    std::deque<TCB *>::iterator iter;
-    for (iter = finish_queue.begin(); iter != finish_queue.end(); iter++) {
+    for (auto iter = finish_queue.begin(); iter != finish_queue.end(); ) {
         if ((*iter)->getId() == tid) {
-            // Set retval if not NULL
             if (retval != nullptr) {
                 *retval = (*iter)->getReturnValue();
             }
-            // Remove thread from FINISH queue and free resources
-            finish_queue.erase(iter);
             delete (*iter);
+            iter = finish_queue.erase(iter);  
             enableInterrupts();
             return 0;
+        } else {
+            ++iter;
         }
     }
 
     enableInterrupts();
-    return -1;
+    return -1;  
 }
 
 int uthread_yield(void) {
@@ -380,6 +384,7 @@ void uthread_exit(void *retval) {
 
     // Check if calling thread is main thread
     if (current_thread == main_thread) {
+        delete current_thread;
         exit(0);    // ??
     }
 

@@ -28,7 +28,7 @@ TCB::TCB(int tid, Priority pr, void *(*start_routine)(void *arg), void *arg, Sta
 }
 
 TCB::~TCB() {
-    delete (char *) _context.uc_stack.ss_sp;
+    delete[] (char *) _context.uc_stack.ss_sp;
 }
 
 void TCB::setState(State state) {

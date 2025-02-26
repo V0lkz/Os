@@ -141,5 +141,6 @@ int main(int argc, char *argv[]) {
     printf("\nFinal Estimation of Pi: [%f]\n",
            (4. * (double) g_cnt) / ((double) points_per_thread * thread_count));
 
+    uthread_exit(NULL);
     return 0;
 }
