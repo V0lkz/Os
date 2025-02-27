@@ -154,6 +154,10 @@ static int switchThreads() {
     // Flag to keep track of the resumed thread
     volatile int flag = 0;
 
+    // Increase quantums
+    current_thread->increaseQuantum();
+    total_quantums++;
+
     // Save old thread context
     if (getcontext(&current_thread->_context) != 0) {
         perror("getcontext");
@@ -343,8 +347,6 @@ int uthread_yield(void) {
     // Add current thread to ready queue
     current_thread->setState(READY);
     addToQueue(ready_queue, current_thread);
-    current_thread->increaseQuantum();
-    total_quantums++;
 
     // Switch to new thread
     if (switchThreads() != 0) {
