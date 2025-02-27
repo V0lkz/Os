@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <iostream>
 
@@ -17,6 +18,14 @@ using namespace std;
 #define RAND_SEED 12345678
 
 uthread_once_t uthread_once_control = UTHREAD_ONCE_INIT;
+
+typedef struct timespec timespec_t;
+
+double get_elapsed_time_sec(const timespec_t *start, const timespec_t *end) {
+    long start_nanos = (long) 1e9 * start->tv_sec + start->tv_nsec;
+    long end_nanos = (long) 1e9 * end->tv_sec + end->tv_nsec;
+    return (double) (end_nanos - start_nanos) / 1e9;
+}
 
 void init_routine_srand(void) {
     srand(RAND_SEED);
@@ -63,6 +72,8 @@ void *worker(void *arg) {
 int main(int argc, char *argv[]) {
     /* Initialize the default time slice (only overridden if passed in) */
     int quantum_usecs = DEFAULT_TIME_SLICE;
+    timespec_t start, end;
+    double elapsed_time;
 
     /* Verify the number of arguments passed in */
     if (argc < 3) {
@@ -117,6 +128,9 @@ int main(int argc, char *argv[]) {
         threads[i] = tid;
     }
 
+    // Start timer
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+
     /* Join each thread and compute the result */
     unsigned long g_cnt = 0;
     for (int i = 0; i < thread_count; i++) {
@@ -131,6 +145,9 @@ int main(int argc, char *argv[]) {
         delete local_cnt;
     }
 
+    // End timer
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+
     delete[] threads;
 
     /**
@@ -140,6 +157,9 @@ int main(int argc, char *argv[]) {
      */
     printf("\nFinal Estimation of Pi: [%f]\n",
            (4. * (double) g_cnt) / ((double) points_per_thread * thread_count));
+
+    elapsed_time = get_elapsed_time_sec(&start, &end);
+    printf("Total elapsed time: %.4e sec\n", elapsed_time);
 
     uthread_exit(NULL);
     return 0;
