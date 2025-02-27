@@ -122,14 +122,14 @@ int main(int argc, char *argv[]) {
 
     srand(time(NULL));
 
+    // Start timer
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+
     /* Create a thread pool of threads passing in the points per thread */
     for (int i = 0; i < thread_count; i++) {
         int tid = uthread_create(worker, &points_per_thread);
         threads[i] = tid;
     }
-
-    // Start timer
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 
     /* Join each thread and compute the result */
     unsigned long g_cnt = 0;
