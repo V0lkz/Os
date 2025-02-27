@@ -6,6 +6,8 @@
 #include "../lib/uthread.h"
 
 uthread_once_t uthread_once_control = UTHREAD_ONCE_INIT;
+static int uthread_library_init = 0;
+static int quantum_usecs = 100000;    // 100 ms quantum default
 int once_count = 0;
 
 void init_function() {
@@ -53,38 +55,40 @@ void *func1(void *arg) {
     return NULL;
 }
 
-static int quantum_usecs = 100000;    // 100 ms quantum default
-
 void test(int i) {
     std::cout << "---------- Test: " << i << " ----------" << std::endl;
-    // Test 1
-    if (i == 1) {
-        std::cout << "Test init, create, self, and join" << std::endl;
-        std::cout << "Initializing library" << std::endl;
+    if (!uthread_library_init) {
+        std::cout << "Initializing library..." << std::endl;
         if (uthread_init(quantum_usecs) != 0) {
             std::cerr << "uthread_init" << std::endl;
             exit(1);
         }
-        std::cout << "Creating thread" << std::endl;
+        uthread_library_init = 1;
+    }
+    // Test 1
+    if (i == 1) {
+        std::cout << "Test create, self, and join" << std::endl;
+        std::cout << "Creating thread..." << std::endl;
         int tid1;
-        if (tid1 = uthread_create(func1, NULL) == -1) {
+        if ((tid1 = uthread_create(func1, NULL)) == -1) {
             std::cerr << "uthread_create" << std::endl;
             exit(1);
         }
-        std::cout << "Joining thread" << std::endl;
+        std::cout << "Thread " << tid1 << " created" << std::endl;
+        std::cout << "Joining thread..." << std::endl;
         if (uthread_join(tid1, NULL) != 0) {
             std::cerr << "uthread_join" << std::endl;
             exit(1);
         }
-        std::cout << uthread_self() << std::endl;
+        std::cout << "Current thread: " << uthread_self() << std::endl;
     }
     // Test 2
     else if (i == 2) {
         std::cout << "Test creating and joining multiple threads" << std::endl;
         int tid2[3];
+        std::cout << "Creating threads..." << std::endl;
         for (int i = 0; i < 3; i++) {
-            tid2[i] = uthread_create(func1, NULL);
-            if (tid2[i] == -1) {
+            if ((tid2[i] = uthread_create(func1, NULL)) == -1) {
                 std::cerr << "uthread_create" << std::endl;
                 exit(1);
             }
@@ -102,7 +106,7 @@ void test(int i) {
         void *ret3 = nullptr;
         int tid3 = -1;
         std::cout << "Test return value from stub" << std::endl;
-        if ((tid3 = uthread_create(func2, &ret3)) != 0) {
+        if ((tid3 = uthread_create(func2, NULL)) == -1) {
             std::cerr << "uthread_create" << std::endl;
             exit(1);
         }
