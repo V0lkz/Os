@@ -8,7 +8,7 @@
 uthread_once_t uthread_once_control = UTHREAD_ONCE_INIT;
 static int uthread_library_init = 0;
 static int quantum_usecs = 100000;    // 100 ms quantum default
-int once_count = 0;
+static int once_count = 0;
 
 void init_function() {
     once_count++;
@@ -231,9 +231,9 @@ void test(int i) {
             uthread_join(tid7[i], NULL);
         }
         if (once_count == 1) {
-            std::cout << "Test 7 completed" << std::endl;
+            std::cout << "Test 8 successful" << std::endl;
         } else {
-            std::cerr << "Test 7 failed " << std::endl;
+            std::cerr << "Test 8 failed " << std::endl;
         }
     }
     std::cout << "Test " << i << " Completed!" << std::endl;
@@ -245,7 +245,7 @@ int main(int argc, char *argv[]) {
 
     // Run all tests
     if (argc == 1) {
-        for (int i = 1; i <= 7; i++) {
+        for (int i = 1; i <= 8; i++) {
             test(i);
         }
     }
