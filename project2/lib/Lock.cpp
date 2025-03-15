@@ -31,6 +31,15 @@ void Lock::lock() {
 // lock and hand off the lock
 void Lock::unlock() {
     disableInterrupts();
+    // Call interrupt disabled version
+    _unlock();
+    enableInterrupts();
+}
+
+// Unlock the lock while interrupts have already been disabled
+// NOTE: This function should NOT be used by user code. It is only to be used
+//       by uthread library code
+void Lock::_unlock() {
     // Check if there are waiting signaled threads
     if (!signaled_queue.empty()) {
         TCB *next = signaled_queue.front();
@@ -49,18 +58,11 @@ void Lock::unlock() {
     else {
         held = false;
     }
-    enableInterrupts();
-}
-
-// Unlock the lock while interrupts have already been disabled
-// NOTE: This function should NOT be used by user code. It is only to be used
-//       by uthread library code
-void Lock::_unlock() {
-    // TODO
 }
 
 // Let the lock know that it should switch to this thread after the lock has
 // been released (following Mesa semantics)
 void Lock::_signal(TCB *tcb) {
-    // TODO
+    // Add TCB to the signaled queue
+    signaled_queue.push(tcb);
 }
