@@ -14,6 +14,7 @@ void CondVar::wait(Lock &lock) {
     // Ensure thread has lock when calling wait
     assert(lock.held);
     disableInterrupts();
+    *(this->lock) = lock;    // ?
     // Add running thread to condition variable queue
     running->setState(BLOCK);
     queue.push(running);
@@ -29,11 +30,12 @@ void CondVar::wait(Lock &lock) {
 // Wake up a blocked thread if any is waiting
 void CondVar::signal() {
     disableInterrupts();
+    // Check if there are other waiting threads
     if (!queue.empty()) {
-        // Remove a thread from queue
+        // Remove thread from queue
         TCB *next = queue.front();
         queue.pop();
-        // Signal to run next thread??
+        // Add thread to signaled queue
         lock->_signal(next);
     }
     enableInterrupts();
