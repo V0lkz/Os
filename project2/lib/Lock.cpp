@@ -11,26 +11,14 @@ Lock::Lock() : held(false) {
 // Attempt to acquire lock. Grab lock if available, otherwise thread is
 // blocked until the lock becomes available
 void Lock::lock() {
-    // TCB pointer to next thread to run
-    TCB *next;
     disableInterrupts();
     // Check if lock is held
     if (held) {
         // Add running thread to entrance queue
         running->setState(BLOCK);
         entrance_queue.push(running);
-        // Pop from signaled queue
-        if (!signaled_queue.empty()) {
-            next = signaled_queue.front();
-            signaled_queue.pop();
-        }
-        // Otherwise pop from entrance queue
-        else {
-            next = entrance_queue.front();
-            entrance_queue.pop();
-        }
-        // Switch to next thread
-        switchToThread(next);
+        // Switch to another thread
+        switchThreads();
     }
     // Otherwise set held to true
     else {
@@ -42,12 +30,26 @@ void Lock::lock() {
 // Unlock the lock. Wake up a blocked thread if any is waiting to acquire the
 // lock and hand off the lock
 void Lock::unlock() {
-    // TODO
     disableInterrupts();
-    // Acquire spin lock
-    if ()
-        // Release spin lock
-        enableInterrupts();
+    // Check if there are waiting signaled threads
+    if (!signaled_queue.empty()) {
+        TCB *next = signaled_queue.front();
+        signaled_queue.pop();
+        next->setState(READY);
+        addToReady(next);
+    }
+    // Check if there are waiting entrance threads
+    else if (!entrance_queue.empty()) {
+        TCB *next = entrance_queue.front();
+        entrance_queue.pop();
+        next->setState(READY);
+        addToReady(next);
+    }
+    // Otherwise no waiting threads
+    else {
+        held = false;
+    }
+    enableInterrupts();
 }
 
 // Unlock the lock while interrupts have already been disabled
