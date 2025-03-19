@@ -2,6 +2,8 @@
 
 #include <aio.h>
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "uthread.h"
 
@@ -15,7 +17,6 @@
 // Output:
 // - Number of bytes read on success, -1 on failure
 ssize_t async_read(int fd, void *buf, size_t count, int offset) {
-    /* Consider how this should be used */
     // clang-format off
     struct aiocb async_read_req = {
         .aio_fildes = fd,
@@ -23,17 +24,26 @@ ssize_t async_read(int fd, void *buf, size_t count, int offset) {
         .aio_nbytes = count,
         .aio_offset = offset
     };
-    
-    //Returen immediately if initiation fails
-    if(aio_read(&async_read_req) == -1){
-        return -1; 
+    // clang-format on
+
+    // Return immediately if initialization fails
+    if (aio_read(&async_read_req) != 0) {
+        perror("aio_read");
+        return -1;
     }
 
-    //Polling, wait for completion
-    while(aio_error(&async_read_req) == EINPROGRESS){
+    // Polling until completion
+    int ret_val;
+    while ((ret_val = aio_error(&async_read_req)) == EINPROGRESS) {
         uthread_yield();
     }
+    // Check if there is an error
+    if (ret_val != 0) {
+        fprintf(stderr, "aio_error: %s\n", strerror(ret_val));
+        return -1;
+    }
 
+    // Return I/O result
     return aio_return(&async_read_req);
 }
 
@@ -47,20 +57,32 @@ ssize_t async_read(int fd, void *buf, size_t count, int offset) {
 // Output:
 // - Number of bytes written on success, -1 on failure
 ssize_t async_write(int fd, void *buf, size_t count, int offset) {
-    /* Consider how this should be used */
+    // clang-format off
     struct aiocb async_write_req = {
-        .aio_fildes = fd, .aio_buf = buf, .aio_nbytes = count, .aio_offset = offset
+        .aio_fildes = fd,
+        .aio_buf = buf,
+        .aio_nbytes = count,
+        .aio_offset = offset
     };
+    // clang-format on
 
-    //Returen immediately if initiation fails
-    if(aio_write(&async_write_req) == -1){
-        return -1; 
+    // Return immediately if initization fails
+    if (aio_write(&async_write_req) == -1) {
+        perror("aio_write");
+        return -1;
     }
 
-    //Polling, wait for completion
-    while(aio_error(&async_write_req) == EINPROGRESS){
+    // Polling until completion
+    int ret_val;
+    while ((ret_val = aio_error(&async_write_req)) == EINPROGRESS) {
         uthread_yield();
     }
+    // Check if there is an error
+    if (ret_val != 0) {
+        fprintf(stderr, "aio_error: %s\n", strerror(ret_val));
+        return -1;
+    }
 
+    // Return I/O result
     return aio_return(&async_write_req);
 }
