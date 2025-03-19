@@ -19,7 +19,7 @@ uthread-sync-demo-from-soln: $(OBJ_SOLN) $(MAIN_OBJ_UTHRAD_SYNC)
 uthread-sync-demo: $(OBJ) $(MAIN_OBJ_UTHRAD_SYNC)
 	$(CC) -o $@ $^ $(CFLAGS)
 
-lockperformance: $(OBJ) $(LOCKPERF_OBJ)
+lockperformance: $(OBJ_SOLN) $(LOCKPERF_OBJ)
 	$(CC) -o lockperformance $^ $(CFLAGS)
 
 .PHONY: clean

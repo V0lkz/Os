@@ -7,11 +7,11 @@
 #include "../lib/uthread.h"
 
 #define NUM_THREADS 10
-#define NUM_ITERATIONS 100000
+#define NUM_ITERATIONS 1000000
 
 Lock global_lock;
 SpinLock spin_lock;
-int shared_counter = 0;
+uint64_t shared_counter = 0;
 
 void *critical_section_with_lock(void *) {
     for (int i = 0; i < NUM_ITERATIONS; i++) {
@@ -60,7 +60,7 @@ void run_test(void *(*lock_func)(void *), const std::string &lock_type) {
 }
 
 int main() {
-    uthread_init(1000);
+    uthread_init(100000);
 
     std::cout << "Testing Lock Performance...\n";
     run_test(critical_section_with_lock, "Lock");
