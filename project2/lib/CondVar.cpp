@@ -40,3 +40,15 @@ void CondVar::signal() {
     }
     enableInterrupts();
 }
+
+void CondVar::broadcast() {
+    disableInterrupts();
+    while (!queue.empty()) {
+        // Remove thread from queue
+        TCB *next = queue.front();
+        queue.pop();
+        // Add thread to signaled queue
+        lock->_signal(next);
+    }
+    enableInterrupts();
+}
