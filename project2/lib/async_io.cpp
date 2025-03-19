@@ -23,10 +23,18 @@ ssize_t async_read(int fd, void *buf, size_t count, int offset) {
         .aio_nbytes = count,
         .aio_offset = offset
     };
-    // clang-format on
+    
+    //Returen immediately if initiation fails
+    if(aio_read(&async_read_req) == -1){
+        return -1; 
+    }
 
-    // TODO
-    return 0;    // return statement added only to allow compilation (replace with correct code)
+    //Polling, wait for completion
+    while(aio_error(&async_read_req) == EINPROGRESS){
+        uthread_yield();
+    }
+
+    return aio_return(&async_read_req);
 }
 
 // Carry out an asynchronous write request where this thread will be blocked
@@ -44,6 +52,15 @@ ssize_t async_write(int fd, void *buf, size_t count, int offset) {
         .aio_fildes = fd, .aio_buf = buf, .aio_nbytes = count, .aio_offset = offset
     };
 
-    // TODO
-    return 0;    // return statement added only to allow compilation (replace with correct code)
+    //Returen immediately if initiation fails
+    if(aio_write(&async_write_req) == -1){
+        return -1; 
+    }
+
+    //Polling, wait for completion
+    while(aio_error(&async_write_req) == EINPROGRESS){
+        uthread_yield();
+    }
+
+    return aio_return(&async_write_req);
 }
