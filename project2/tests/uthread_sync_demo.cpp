@@ -1,9 +1,10 @@
-#include "../lib/uthread.h"
-#include "../lib/Lock.h"
-#include "../lib/CondVar.h"
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+
+#include "../lib/CondVar.h"
+#include "../lib/Lock.h"
+#include "../lib/uthread.h"
 
 using namespace std;
 
@@ -30,8 +31,7 @@ static bool producer_in_critical_section = false;
 static bool consumer_in_critical_section = false;
 
 // Verify the buffer is in a good state
-void assert_buffer_invariants()
-{
+void assert_buffer_invariants() {
     assert(item_count <= SHARED_BUFFER_SIZE);
     assert(item_count >= 0);
     assert(head < SHARED_BUFFER_SIZE);
@@ -39,32 +39,24 @@ void assert_buffer_invariants()
     assert(tail < SHARED_BUFFER_SIZE);
     assert(tail >= 0);
 
-    if (head > tail)
-    {
+    if (head > tail) {
         assert((head - tail) == item_count);
-    }
-    else if (head < tail)
-    {
+    } else if (head < tail) {
         assert(((SHARED_BUFFER_SIZE - tail) + head) == item_count);
-    }
-    else
-    {
+    } else {
         assert((item_count == SHARED_BUFFER_SIZE) || (item_count == 0));
     }
 
     assert(produced_count >= consumed_count);
 }
 
-void *producer(void *arg)
-{
-    while (true)
-    {
+void *producer(void *arg) {
+    while (true) {
         buffer_lock.lock();
 
         // Wait for room in the buffer if needed
         // NOTE: Assuming Mesa semantics
-        if (item_count == SHARED_BUFFER_SIZE)
-        {
+        if (item_count == SHARED_BUFFER_SIZE) {
             need_space_cv.wait(buffer_lock);
         }
 
@@ -86,8 +78,7 @@ void *producer(void *arg)
         buffer_lock.unlock();
 
         // Randomly give another thread a chance
-        if ((rand() % 100) < RANDOM_YIELD_PERCENT)
-        {
+        if ((rand() % 100) < RANDOM_YIELD_PERCENT) {
             uthread_yield();
         }
     }
@@ -95,16 +86,13 @@ void *producer(void *arg)
     return nullptr;
 }
 
-void *consumer(void *arg)
-{
-    while (true)
-    {
+void *consumer(void *arg) {
+    while (true) {
         buffer_lock.lock();
 
         // Wait for an item in the buffer if needed
         // NOTE: Assuming Mesa semantics
-        while (item_count == 0)
-        {
+        while (item_count == 0) {
             need_item_cv.wait(buffer_lock);
         }
 
@@ -120,8 +108,7 @@ void *consumer(void *arg)
         consumed_count++;
 
         // Print an update periodically
-        if ((consumed_count % PRINT_FREQUENCY) == 0)
-        {
+        if ((consumed_count % PRINT_FREQUENCY) == 0) {
             cout << "Consumed " << consumed_count << " items" << endl;
         }
 
@@ -132,8 +119,7 @@ void *consumer(void *arg)
         buffer_lock.unlock();
 
         // Randomly give another thread a chance
-        if ((rand() % 100) < RANDOM_YIELD_PERCENT)
-        {
+        if ((rand() % 100) < RANDOM_YIELD_PERCENT) {
             uthread_yield();
         }
     }
@@ -141,10 +127,8 @@ void *consumer(void *arg)
     return nullptr;
 }
 
-int main(int argc, char *argv[])
-{
-    if (argc != 3)
-    {
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
         cerr << "Usage: ./uthread-sync-demo <num_producer> <num_consumer>" << endl;
         cerr << "Example: ./uthread-sync-demo 20 20" << endl;
         exit(1);
@@ -153,38 +137,32 @@ int main(int argc, char *argv[])
     int producer_count = atoi(argv[1]);
     int consumer_count = atoi(argv[2]);
 
-    if ((producer_count + consumer_count) > 99)
-    {
+    if ((producer_count + consumer_count) > 99) {
         cerr << "Error: <num_producer> + <num_consumer> must be <= 99" << endl;
         exit(1);
     }
 
     // Init user thread library
     int ret = uthread_init(UTHREAD_TIME_QUANTUM);
-    if (ret != 0)
-    {
+    if (ret != 0) {
         cerr << "Error: uthread_init" << endl;
         exit(1);
     }
 
     // Create producer threads
     int *producer_threads = new int[producer_count];
-    for (int i = 0; i < producer_count; i++)
-    {
+    for (int i = 0; i < producer_count; i++) {
         producer_threads[i] = uthread_create(producer, nullptr);
-        if (producer_threads[i] < 0)
-        {
+        if (producer_threads[i] < 0) {
             cerr << "Error: uthread_create producer" << endl;
         }
     }
 
     // Create consumer threads
     int *consumer_threads = new int[consumer_count];
-    for (int i = 0; i < consumer_count; i++)
-    {
+    for (int i = 0; i < consumer_count; i++) {
         consumer_threads[i] = uthread_create(consumer, nullptr);
-        if (consumer_threads[i] < 0)
-        {
+        if (consumer_threads[i] < 0) {
             cerr << "Error: uthread_create consumer" << endl;
         }
     }
@@ -193,21 +171,17 @@ int main(int argc, char *argv[])
     //       join on them do the following
 
     // Wait for all producers to complete
-    for (int i = 0; i < producer_count; i++)
-    {
+    for (int i = 0; i < producer_count; i++) {
         int result = uthread_join(producer_threads[i], nullptr);
-        if (result < 0)
-        {
+        if (result < 0) {
             cerr << "Error: uthread_join producer" << endl;
         }
     }
 
     // Wait for all consumers to complete
-    for (int i = 0; i < consumer_count; i++)
-    {
+    for (int i = 0; i < consumer_count; i++) {
         int result = uthread_join(consumer_threads[i], nullptr);
-        if (result < 0)
-        {
+        if (result < 0) {
             cerr << "Error: uthread_join consumer" << endl;
         }
     }

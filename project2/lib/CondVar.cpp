@@ -14,7 +14,7 @@ void CondVar::wait(Lock &lock) {
     // Ensure thread has lock when calling wait
     assert(lock.held);
     disableInterrupts();
-    *(this->lock) = lock;    // ?
+    this->lock = &lock;    // ?
     // Add running thread to condition variable queue
     running->setState(BLOCK);
     queue.push(running);
@@ -22,6 +22,8 @@ void CondVar::wait(Lock &lock) {
     lock._unlock();
     // Switch to another thread
     switchThreads();
+    // Re-enable interrupts
+    enableInterrupts();
     // Re-acquire lock
     lock.lock();
     // Interrupts already re-enabled
@@ -30,6 +32,7 @@ void CondVar::wait(Lock &lock) {
 // Wake up a blocked thread if any is waiting
 void CondVar::signal() {
     disableInterrupts();
+    std::cerr << "CV signaled by " << running->getId() << std::endl;
     // Check if there are other waiting threads
     if (!queue.empty()) {
         // Remove thread from queue

@@ -6,7 +6,9 @@ replit.nix
 # Project 2
 project2/lockperformance
 project2/uthread-sync-demo
-project2/tests/server
 # Object files
+project2/tests/server/*.so
+project2/tests/server/*.o
+project2/tests/server/http_server
 project2/tests/*.o
 project2/lib/*.o

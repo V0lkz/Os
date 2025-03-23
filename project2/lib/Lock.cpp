@@ -4,6 +4,12 @@
 
 #include "uthread_private.h"
 
+#ifdef DEBUG
+#define debug(x) std::cerr << x << std::endl;
+#else
+#define debug(x) (void) (x)
+#endif
+
 Lock::Lock() : held(false) {
     // Nothing to do
 }
@@ -24,6 +30,7 @@ void Lock::lock() {
     else {
         held = true;
     }
+    std::cerr << "Lock acquired by " << running->getId() << std::endl;
     enableInterrupts();
 }
 
@@ -46,6 +53,7 @@ void Lock::_unlock() {
         signaled_queue.pop();
         next->setState(READY);
         addToReady(next);
+        std::cerr << "signaled\n";
     }
     // Check if there are waiting entrance threads
     else if (!entrance_queue.empty()) {
@@ -53,10 +61,12 @@ void Lock::_unlock() {
         entrance_queue.pop();
         next->setState(READY);
         addToReady(next);
+        std::cerr << "entrance\n";
     }
     // Otherwise no waiting threads
     else {
         held = false;
+        std::cerr << "Lock released by " << running->getId() << std::endl;
     }
 }
 
