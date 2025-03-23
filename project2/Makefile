@@ -29,10 +29,11 @@ test: $(OBJ_SOLN) ./tests/tests.o
 run: server
 	./http_server ./tests/server/server_files 8000 10000
 
+server:
+	make -C ./tests/server
+
 clean:
 	rm -f ./lib/*.o
 	rm -f ./tests/*.o
-	rm -f ./tests/server/*.so
-	rm -f ./tests/server/*.o
-	rm -f ./tests/server/http_server
-	rm -f *.o uthread-sync-demo lockperformance
+	rm -f ./tests/server/*.so ./tests/server/*.o ./tests/server/http_server
+	rm -f *.o uthread-sync-demo lockperformance test http_server

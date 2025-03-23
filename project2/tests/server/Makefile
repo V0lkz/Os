@@ -22,7 +22,7 @@ barrier.o: barrier.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 http_server: $(OBJ_SOLN) async_socket.o http.o connection_queue.o http_server.o
-	$(CC) $(CFLAGS) -o $@ $^ -lrt
+	$(CC) $(CFLAGS) -o $(HOME_DIR)$@ $^ -lrt
 
 concurrent_open.so: concurrent_open.c barrier.o
 	gcc -Wall -Wextra -g -shared -fPIC -o $@ $^ -ldl

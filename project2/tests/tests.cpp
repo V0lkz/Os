@@ -51,12 +51,17 @@ int test_mutex_lock() {
         total_expected += ((long) temp * NUM_ITER_T1);
     }
     // Check for correct results
-    if (counter_t1 < NUM_ITER_T1 * NUM_THREADS_T1) {
+    if (counter_t1 != NUM_ITER_T1 * NUM_THREADS_T1) {
+        std::cerr << "Counter is incorrect" << std::endl;
         return -1;
     }
     int total_actual = 0;
-    for (int i = 0; i < NUM_ITER_T1 * NUM_THREADS_T1; i++) {
+    for (int i = 0; i < counter_t1; i++) {
         total_actual += values_t1[i];
+    }
+    if (total_actual != total_expected) {
+        std::cerr << "Total sum is incorrect" << std::endl;
+        return -1;
     }
     return 0;
 }
@@ -92,7 +97,6 @@ int main(int argc, char *argv[]) {
     }
 
     const int testnum = atoi(argv[1]);
-    std::cerr << testnum << std::endl;
     const int quantum_usecs = atoi(argv[2]);
     const bool test_all = (testnum <= 0 ? true : false);
 
