@@ -10,6 +10,8 @@ LOCKPERF_OBJ = ./tests/LockPerformance.o
 SERVER_DIR = ./tests/server
 GCC = gcc -Wall -Werror -g
 
+.PHONY: clean run all
+
 %.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
@@ -24,29 +26,15 @@ uthread-sync-demo: $(OBJ) $(MAIN_OBJ_UTHRAD_SYNC)
 lockperformance: $(OBJ_SOLN) $(LOCKPERF_OBJ)
 	$(CC) -o lockperformance $^ $(CFLAGS)
 
-server: http_server concurrent_open.so
-
-http_server: $(OBJ_SOLN) http.o http_server.o connection_queue.o
-	$(CC) -Wall -Wextra -g --std=c++14 -o $@ $^
-
-http_server.o: $(SERVER_DIR)/http_server.cpp
-	$(CC) -c $< $(CFLAGS)
-
-http.o: $(SERVER_DIR)/http.c $(SERVER_DIR)/http.h
-	$(GCC) -c $<
-
-connection_queue.o: $(SERVER_DIR)/connection_queue.cpp $(SERVER_DIR)/connection_queue.h
-	$(CC) -c $< $(CFLAGS)
-
-concurrent_open.so: $(SERVER_DIR)/concurrent_open.c
-	$(GCC) -shared -fpic -o $@ $^ -ldl
+server:
 
 run: server
-	./http_server ./tests/server/server_files 8001
-
-.PHONY: clean
+	./http_server ./tests/server/server_files 8000 10000
 
 clean:
 	rm -f ./lib/*.o
 	rm -f ./tests/*.o
+	rm -f ./tests/server/*.so
+	rm -f ./tests/server/*.o
+	rm -f ./tests/server/http_server
 	rm -f *.o uthread-sync-demo lockperformance
