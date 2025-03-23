@@ -12,3 +12,4 @@ project2/tests/server/*.o
 project2/tests/server/http_server
 project2/tests/*.o
 project2/lib/*.o
+project2/test

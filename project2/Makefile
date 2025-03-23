@@ -7,15 +7,12 @@ OBJ_SOLN = ./solution/TCB_soln.o ./solution/uthread_soln.o ./lib/Lock.o ./lib/Co
 MAIN_OBJ_UTHRAD_SYNC = ./tests/uthread_sync_demo.o
 LOCKPERF_OBJ = ./tests/LockPerformance.o
 
-SERVER_DIR = ./tests/server
-GCC = gcc -Wall -Werror -g
-
-.PHONY: clean run all
+.PHONY: all run clean
 
 %.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-all: uthread-sync-demo lockperformance server
+all: uthread-sync-demo lockperformance test
 
 uthread-sync-demo-from-soln: $(OBJ_SOLN) $(MAIN_OBJ_UTHRAD_SYNC)
 	$(CC) -o uthread-sync-demo $^ $(CFLAGS)
@@ -26,7 +23,8 @@ uthread-sync-demo: $(OBJ) $(MAIN_OBJ_UTHRAD_SYNC)
 lockperformance: $(OBJ_SOLN) $(LOCKPERF_OBJ)
 	$(CC) -o lockperformance $^ $(CFLAGS)
 
-server:
+test: $(OBJ_SOLN) ./tests/tests.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 run: server
 	./http_server ./tests/server/server_files 8000 10000
