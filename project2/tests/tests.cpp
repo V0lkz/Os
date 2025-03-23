@@ -18,22 +18,23 @@ enum tests {
 #define NUM_THREADS_T1 5
 #define NUM_ITER_T1 5
 
-static volatile short wait = 0;
+static volatile int wait = 0;
 static Lock lock_t1;
 
 static int values_t1[NUM_ITER_T1 * NUM_THREADS_T1];
 static int counter_t1 = 0;
 
 void *thread_mutex_lock(void *arg) {
+    (void) arg;
     int tid = uthread_self();
     for (int i = 0; i < NUM_ITER_T1; i++) {
         lock_t1.lock();
         values_t1[counter_t1++] = tid;
         // Busy waiting with lock
-        while (++wait)
-            ;
+        while (++wait & 0xFFFFFFF);
         lock_t1.unlock();
     }
+    std::cout << "Thread " << tid << " finished" << std::endl;
     return (void *) (long) tid;
 }
 
@@ -41,13 +42,18 @@ int test_mutex_lock() {
     // Create threads
     int threads[NUM_THREADS_T1];
     for (int i = 0; i < NUM_THREADS_T1; i++) {
-        uthread_create(thread_mutex_lock, NULL);
+        threads[i] = uthread_create(thread_mutex_lock, NULL);
+        if (threads[i] == -1) {
+            std::cerr << "uthread_create" << std::endl;
+        }
     }
     // Join threads
     int total_expected = 0;
     for (int i = 0; i < NUM_THREADS_T1; i++) {
         void *temp = nullptr;
-        uthread_join(threads[i], &temp);
+        if (uthread_join(threads[i], &temp) != 0) {
+            std::cerr << "uthread_join" << std::endl;
+        }
         total_expected += ((long) temp * NUM_ITER_T1);
     }
     // Check for correct results

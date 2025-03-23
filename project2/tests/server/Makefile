@@ -2,7 +2,7 @@ CFLAGS = -Wall -Wextra -g --std=c++14
 CC = g++
 
 HOME_DIR = ./../../
-OBJ_SOLN = $(HOME_DIR)solution/TCB_soln.o $(HOME_DIR)solution/uthread_soln.o $(HOME_DIR)lib/Lock.o $(HOME_DIR)lib/CondVar.o $(HOME_DIR)/lib/async_io.o
+OBJ_SOLN = $(HOME_DIR)solution/TCB_soln.o $(HOME_DIR)solution/uthread_soln.o $(HOME_DIR)lib/Lock.o $(HOME_DIR)lib/CondVar.o $(HOME_DIR)lib/async_io.o
 
 ifdef DEBUG
 	CFLAGS += -DDEBUG
@@ -12,8 +12,8 @@ endif
 
 all: http_server concurrent_open.so
 
-$(HOME_DIR)/lib/async_io.o:
-	$(CC) $(CFLAGS) -Wno-missing-field-initializers -c -o $@ $(HOME_DIR)/lib/async_io.cpp
+$(HOME_DIR)lib/async_io.o:
+	$(CC) $(CFLAGS) -Wno-missing-field-initializers -c -o $@ $(HOME_DIR)lib/async_io.cpp
 
 barrier.o: barrier.cpp
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<

@@ -5,9 +5,9 @@
 #include "uthread_private.h"
 
 #ifdef DEBUG
-#define debug(x) std::cerr << x << std::endl;
+#define PRINT(format, ...) fprintf(stderr, format, __VA_ARGS__)
 #else
-#define debug(x) (void) (x)
+#define PRINT(fstr, ...)    // DEBUG OFF
 #endif
 
 Lock::Lock() : held(false) {
@@ -23,6 +23,7 @@ void Lock::lock() {
         // Add running thread to entrance queue
         running->setState(BLOCK);
         entrance_queue.push(running);
+        PRINT("Thread %d added to entrance queue\n", running->getId());
         // Switch to another thread
         switchThreads();
     }
@@ -30,7 +31,7 @@ void Lock::lock() {
     else {
         held = true;
     }
-    std::cerr << "Lock acquired by " << running->getId() << std::endl;
+    PRINT("Lock acquired by %d\n", running->getId());
     enableInterrupts();
 }
 
@@ -53,7 +54,8 @@ void Lock::_unlock() {
         signaled_queue.pop();
         next->setState(READY);
         addToReady(next);
-        std::cerr << "signaled\n";
+        PRINT("Thread %d removed from signaled queue by thread %d\n", next->getId(),
+              running->getId());
     }
     // Check if there are waiting entrance threads
     else if (!entrance_queue.empty()) {
@@ -61,12 +63,13 @@ void Lock::_unlock() {
         entrance_queue.pop();
         next->setState(READY);
         addToReady(next);
-        std::cerr << "entrance\n";
+        PRINT("Thread %d removed from entrance queue by thread %d\n", next->getId(),
+              running->getId());
     }
     // Otherwise no waiting threads
     else {
         held = false;
-        std::cerr << "Lock released by " << running->getId() << std::endl;
+        PRINT("Lock released by thread %d\n", running->getId());
     }
 }
 

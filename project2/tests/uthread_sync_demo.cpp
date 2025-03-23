@@ -51,6 +51,7 @@ void assert_buffer_invariants() {
 }
 
 void *producer(void *arg) {
+    (void) arg;
     while (true) {
         buffer_lock.lock();
 
@@ -87,6 +88,7 @@ void *producer(void *arg) {
 }
 
 void *consumer(void *arg) {
+    (void) arg;
     while (true) {
         buffer_lock.lock();
 
@@ -103,6 +105,7 @@ void *consumer(void *arg) {
 
         // Grab an item from the buffer
         int item = buffer[tail];
+        (void) item;
         tail = (tail + 1) % SHARED_BUFFER_SIZE;
         item_count--;
         consumed_count++;
