@@ -6,6 +6,7 @@
 #include "../lib/SpinLock.h"
 #include "../lib/uthread.h"
 
+// Test cases
 enum tests {
     MUTEX_LOCK = 1,
     SPIN_LOCK,
@@ -20,12 +21,13 @@ static volatile unsigned int wait = 0;
 /* Testing Setup Functions */
 
 #define NUM_THREADS 5
+#define SEED 5103
 
-static void *t_results[NUM_THREADS];
-static int threads[NUM_THREADS];
+static void *t_results[NUM_THREADS];    // Thread return value
+static int threads[NUM_THREADS];        // Thread id array
 
+// Create threads
 int testing_setup(void *(*thread_func)(void *), void *args) {
-    // Create threads
     for (int i = 0; i < NUM_THREADS; i++) {
         threads[i] = uthread_create(thread_func, args);
         if (threads[i] == -1) {
@@ -36,8 +38,8 @@ int testing_setup(void *(*thread_func)(void *), void *args) {
     return 0;
 }
 
+// Join threads
 int testing_cleanup() {
-    // Join threads
     for (int i = 0; i < NUM_THREADS; i++) {
         if (uthread_join(threads[i], &t_results[i]) != 0) {
             std::cerr << "uthread_join" << std::endl;
@@ -45,6 +47,11 @@ int testing_cleanup() {
         }
     }
     return 0;
+}
+
+// Display test message
+inline void display_test(const char *message) {
+    std::cout << "====== " << message << " ======" << std::endl;
 }
 
 /* Test 1: Mutex Lock */
@@ -71,7 +78,7 @@ void *thread_mutex_lock(void *args) {
 
 // Tests Lock::lock() and Lock::unlock()
 int test_mutex_lock() {
-    std::cout << "Starting mutex lock test..." << std::endl;
+    display_test("Starting mutex lock test...");
     // Setup threads
     if (testing_setup(thread_mutex_lock, nullptr) != 0) {
         return -1;
@@ -124,7 +131,7 @@ void *thread_spin_lock(void *args) {
 
 // Tests Spinlock::lock() and Spinlock::unlock()
 int test_spin_lock() {
-    std::cout << "Starting spinlock test..." << std::endl;
+    display_test("Starting spinlock test...");
     // Setup threads
     if (testing_setup(thread_spin_lock, nullptr) != 0) {
         return -1;
@@ -156,23 +163,27 @@ int test_spin_lock() {
 /* Test 3: Condition Variable */
 
 static Lock lock_t3;
-static CondVar cv_t3;
+static CondVar barrier_cv;
 
 static int waiting_threads = 0;
 
 void *thread_cond_var(void *args) {
     (void) args;
     // Busy waiting
-    while (++wait);
+    while (++wait & 0xFF) {
+        if ((rand() % 100) < 30) {
+            uthread_yield();
+        }
+    }
     lock_t3.lock();
     // Broadcast to all threads if its the final thread
     if (waiting_threads == NUM_THREADS - 1) {
-        cv_t3.broadcast();
+        barrier_cv.broadcast();
     }
     // Otherwise, check in at barrier
     else {
         waiting_threads++;
-        cv_t3.wait(lock_t3);
+        barrier_cv.wait(lock_t3);
     }
     lock_t3.unlock();
     std::cout << "Thread " << uthread_self() << " exited barrier" << std::endl;
@@ -181,7 +192,7 @@ void *thread_cond_var(void *args) {
 
 // Tests CondVar::wait() and CondVar::broadcast()
 int test_cond_var() {
-    std::cout << "Starting condition variable test..." << std::endl;
+    display_test("Starting condition variable test...");
     // Setup threads
     if (testing_setup(thread_cond_var, nullptr) != 0) {
         return -1;
@@ -206,20 +217,79 @@ static Lock lock_t4;
 static CondVar full_cv;
 static CondVar empty_cv;
 
+static int buffer_t4[NUM_THREADS];
+static int write_idx = 0;
+static int read_idx = 0;
+static int length = 0;
+
+static bool loop = true;
+
 void *thread_multi_cond_var(void *args) {
     (void) args;
-
-    return nullptr;
+    long items_consumed = 0;
+    while (loop) {
+        // Acquire lock
+        lock_t4.lock();
+        while (length == 0) {
+            empty_cv.wait(lock_t4);
+            if (!loop) {
+                lock_t4.unlock();
+                return (void *) items_consumed;
+            }
+        }
+        // Remove item from buffer
+        std::cout << "Thread " << uthread_self() << " read " << buffer_t4[read_idx++] << std::endl;
+        read_idx = read_idx % NUM_THREADS;
+        length--;
+        items_consumed++;
+        // Release lock
+        full_cv.signal();
+        lock_t4.unlock();
+    }
+    return (void *) items_consumed;
 }
 
+// Tests CondVar more thoroughly
 int test_multi_cond_var() {
-    std::cout << "Starting multiple condition variable test..." << std::endl;
+    display_test("Starting multiple condition variables test...");
     // Setup threads
     if (testing_setup(thread_multi_cond_var, nullptr) != 0) {
         return -1;
     }
+    // Produce items to add into buffer
+    for (int i = 0; i < NUM_THREADS * 2; i++) {
+        // Acquire lock
+        lock_t4.lock();
+        while (length == NUM_THREADS) {
+            full_cv.wait(lock_t4);
+        }
+        // Add item to buffer
+        buffer_t4[write_idx++] = i;
+        write_idx = write_idx % NUM_THREADS;
+        length++;
+        // Release lock
+        empty_cv.signal();
+        lock_t4.unlock();
+        // Randomly yield to let children run
+        if ((rand() % 100) < 25) {
+            uthread_yield();
+        }
+    }
+    // Let children run
+    uthread_yield();
+    loop = false;
+    empty_cv.broadcast();
     // Join threads
     if (testing_cleanup() != 0) {
+        return -1;
+    }
+    // Check for correct results
+    long total = 0;
+    for (int i = 0; i < NUM_THREADS; i++) {
+        total += (long) t_results[i];
+    }
+    if (total != NUM_THREADS * 2 || length != 0) {
+        std::cerr << "Total items consumed is incorrect" << std::endl;
         return -1;
     }
     return 0;
@@ -228,8 +298,8 @@ int test_multi_cond_var() {
 /* Test 5: Asynchronus I/O */
 
 int test_async_io() {
-    std::cout << "Starting asynchronus i/o test..." << std::endl;
-    return 0;
+    display_test("Starting asynchronus I/O test...");
+    return -1;
 }
 
 int main(int argc, char *argv[]) {
@@ -247,6 +317,8 @@ int main(int argc, char *argv[]) {
         std::cerr << "uthread_init" << std::endl;
         exit(1);
     }
+
+    srand(SEED);
 
     // Run tests
     if (test_all || testnum == MUTEX_LOCK) {
