@@ -7,6 +7,8 @@
 
 #include "../../lib/uthread.h"
 
+extern int keep_going;
+
 int async_accept(int sockfd, struct sockaddr *addr, unsigned int *addrlen) {
     // Create pollfds array
     struct pollfd pfds[1];
@@ -19,6 +21,10 @@ int async_accept(int sockfd, struct sockaddr *addr, unsigned int *addrlen) {
         // Check if poll returned an error
         if (ret_val == -1 && errno != EINTR) {
             perror("poll");
+            return -1;
+        }
+        // Check if SIGINT recieved
+        if (keep_going != 1) {
             return -1;
         }
         // Yield the thread

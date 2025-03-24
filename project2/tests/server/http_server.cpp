@@ -13,6 +13,7 @@
 #include "../../lib/CondVar.h"
 #include "../../lib/Lock.h"
 #include "../../lib/uthread.h"
+#include "../../lib/uthread_private.h"
 #include "async_socket.h"
 #include "connection_queue.h"
 #include "http.h"
@@ -53,6 +54,7 @@ void *handle_http_request(void *arg) {
             perror("close");
         }
     }
+    printf("Thread %d exiting\n", uthread_self());
     return NULL;
 }
 
@@ -73,9 +75,14 @@ void clean_up(connection_queue_t *queue, int *threads, int nthreads) {
 
 void handle_sigint(int signo) {
     (void) signo;
-    fprintf(stderr, "SIGINT recieved");
+    fprintf(stderr, "SIGINT recieved\n");
     keep_going = 0;
     connection_queue_shutdown(&queue);
+    // Abort if server is failing to shutdown
+    static int num_sig_caught = 0;
+    if (num_sig_caught++ > 3) {
+        abort();
+    }
 }
 
 int main(int argc, char **argv) {

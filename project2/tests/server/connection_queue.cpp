@@ -79,8 +79,10 @@ int connection_queue_shutdown(connection_queue_t *queue) {
     queue->shutdown = 1;
     // Broadcast all condition variables to wake up threads
     try {
+        queue->lock.lock();
         queue->empty_cv.broadcast();
         queue->full_cv.broadcast();
+        queue->lock.unlock();
     } catch (const std::exception &e) {
         std::cerr << "connection_queue_shutdown: " << e.what() << std::endl;
         return -1;
