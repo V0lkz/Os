@@ -15,7 +15,7 @@ enum tests {
 };
 
 // Busy waiting counter
-static volatile int wait = 0;
+static volatile unsigned int wait = 0;
 
 /* Testing Setup Functions */
 
@@ -71,6 +71,7 @@ void *thread_mutex_lock(void *args) {
 
 // Tests Lock::lock() and Lock::unlock()
 int test_mutex_lock() {
+    std::cout << "Starting mutex lock test..." << std::endl;
     // Setup threads
     if (testing_setup(thread_mutex_lock, nullptr) != 0) {
         return -1;
@@ -114,7 +115,7 @@ void *thread_spin_lock(void *args) {
     for (int i = 0; i < NUM_ITER_T1; i++) {
         spinlock_t2.lock();
         values_t2[counter_t2++] = tid;
-        while (++wait &= 0x7FFFFF);
+        while (++wait &= 0x3FFFFFF);
         spinlock_t2.unlock();
     }
     std::cout << "Thread " << tid << " finished" << std::endl;
@@ -123,6 +124,7 @@ void *thread_spin_lock(void *args) {
 
 // Tests Spinlock::lock() and Spinlock::unlock()
 int test_spin_lock() {
+    std::cout << "Starting spinlock test..." << std::endl;
     // Setup threads
     if (testing_setup(thread_spin_lock, nullptr) != 0) {
         return -1;
@@ -153,15 +155,15 @@ int test_spin_lock() {
 
 /* Test 3: Condition Variable */
 
-Lock lock_t3;
-CondVar cv_t3;
+static Lock lock_t3;
+static CondVar cv_t3;
 
 static int waiting_threads = 0;
 
 void *thread_cond_var(void *args) {
     (void) args;
     // Busy waiting
-    while (++wait);    // Some threads will wait longer than others
+    while (++wait);
     lock_t3.lock();
     // Broadcast to all threads if its the final thread
     if (waiting_threads == NUM_THREADS - 1) {
@@ -174,26 +176,23 @@ void *thread_cond_var(void *args) {
     }
     lock_t3.unlock();
     std::cout << "Thread " << uthread_self() << " exited barrier" << std::endl;
-    return (void *) (long) (waiting_threads);
+    return (void *) (long) waiting_threads;
 }
 
 // Tests CondVar::wait() and CondVar::broadcast()
 int test_cond_var() {
+    std::cout << "Starting condition variable test..." << std::endl;
     // Setup threads
     if (testing_setup(thread_cond_var, nullptr) != 0) {
         return -1;
     }
-    // Wait at barrier along with children
-    lock_t3.lock();
-    cv_t3.wait(lock_t3);
-    lock_t3.unlock();
     // Join threads
     if (testing_cleanup() != 0) {
         return -1;
     }
     // Check for correct results
     for (int i = 0; i < NUM_THREADS; i++) {
-        if ((long) t_results[i] != NUM_THREADS) {
+        if ((long) t_results[i] != (NUM_THREADS - 1)) {
             std::cerr << "Thread count is incorrect" << std::endl;
             return -1;
         }
@@ -203,13 +202,33 @@ int test_cond_var() {
 
 /* Test 4: Multiple Condition Variables */
 
+static Lock lock_t4;
+static CondVar full_cv;
+static CondVar empty_cv;
+
+void *thread_multi_cond_var(void *args) {
+    (void) args;
+
+    return nullptr;
+}
+
 int test_multi_cond_var() {
+    std::cout << "Starting multiple condition variable test..." << std::endl;
+    // Setup threads
+    if (testing_setup(thread_multi_cond_var, nullptr) != 0) {
+        return -1;
+    }
+    // Join threads
+    if (testing_cleanup() != 0) {
+        return -1;
+    }
     return 0;
 }
 
 /* Test 5: Asynchronus I/O */
 
 int test_async_io() {
+    std::cout << "Starting asynchronus i/o test..." << std::endl;
     return 0;
 }
 

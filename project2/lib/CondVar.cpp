@@ -23,11 +23,8 @@ void CondVar::wait(Lock &lock) {
     lock._unlock();
     // Switch to another thread
     switchThreads();
-    // Re-enable interrupts
+    // Lock already acquired
     enableInterrupts();
-    // Re-acquire lock
-    lock.lock();
-    // Interrupts already re-enabled
 }
 
 // Wake up a blocked thread if any is waiting
