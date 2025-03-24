@@ -4,6 +4,7 @@
 #include "../lib/CondVar.h"
 #include "../lib/Lock.h"
 #include "../lib/SpinLock.h"
+#include "../lib/async_io.h"
 #include "../lib/uthread.h"
 
 // Test cases
@@ -111,7 +112,7 @@ int test_mutex_lock() {
 
 #define NUM_ITER_T2 5
 
-SpinLock spinlock_t2;
+static SpinLock spinlock_t2;
 
 static int values_t2[NUM_ITER_T2 * NUM_THREADS];
 static int counter_t2 = 0;
@@ -301,9 +302,49 @@ int test_multi_cond_var() {
 
 /* Test 5: Asynchronus I/O */
 
+static int offset_c = 0;
+
+void *thread_async_io(void *args) {
+    int fd = *((int *) args);
+    int tid = uthread_self();
+    if (async_write(fd, &tid, sizeof(int), offset_c) == -1) {
+        perror("write");
+        return nullptr;
+    }
+    return nullptr;
+}
+
 int test_async_io() {
     display_test("Starting asynchronus I/O test...");
-    return -1;
+    // Open pipe
+    int pipe_fds[2];
+    if (pipe(pipe_fds) == -1) {
+        perror("pipe");
+        return -1;
+    }
+    // Setup threads
+    if (testing_setup(thread_async_io, &pipe_fds[1]) != 0) {
+        return -1;
+    }
+    int offset = 0;
+    int tids[NUM_THREADS];
+    for (int i = 0; i < NUM_THREADS; i++) {
+        offset += async_read(pipe_fds[0], &tids[i], sizeof(int), offset);
+    }
+    // Join threads
+    if (testing_cleanup() != 0) {
+        return -1;
+    }
+    // Close pipe
+    if (close(pipe_fds[0]) == -1 || close(pipe_fds[1]) == -1) {
+        perror("close");
+        return -1;
+    }
+    // Collect results
+    if (offset != offset_c) {
+        return -1;
+    }
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
