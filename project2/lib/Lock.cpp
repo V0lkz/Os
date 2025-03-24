@@ -4,12 +4,6 @@
 
 #include "uthread_private.h"
 
-#ifdef DEBUG
-#define PRINT(format, ...) fprintf(stderr, format, __VA_ARGS__)
-#else
-#define PRINT(fstr, ...)    // DEBUG OFF
-#endif
-
 Lock::Lock() : held(false) {
     // Nothing to do
 }
@@ -78,4 +72,5 @@ void Lock::_unlock() {
 void Lock::_signal(TCB *tcb) {
     // Add TCB to the signaled queue
     signaled_queue.push(tcb);
+    PRINT("Thread %d signaled by thread %d\n", tcb->getId(), running->getId());
 }

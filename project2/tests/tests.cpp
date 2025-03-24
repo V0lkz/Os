@@ -62,13 +62,14 @@ void *thread_mutex_lock(void *args) {
     for (int i = 0; i < NUM_ITER_T1; i++) {
         lock_t1.lock();
         values_t1[counter_t1++] = tid;
-        while (++wait & 0xFFFFFFF);
+        while (++wait &= 0x7FFFFFF);
         lock_t1.unlock();
     }
     std::cout << "Thread " << tid << " finished" << std::endl;
     return (void *) (long) tid;
 }
 
+// Tests Lock::lock() and Lock::unlock()
 int test_mutex_lock() {
     // Setup threads
     if (testing_setup(thread_mutex_lock, nullptr) != 0) {
@@ -113,14 +114,14 @@ void *thread_spin_lock(void *args) {
     for (int i = 0; i < NUM_ITER_T1; i++) {
         spinlock_t2.lock();
         values_t2[counter_t2++] = tid;
-        // Busy waiting with lock
-        while (++wait & 0xFFFFFFF);
+        while (++wait &= 0x7FFFFF);
         spinlock_t2.unlock();
     }
     std::cout << "Thread " << tid << " finished" << std::endl;
     return (void *) (long) tid;
 }
 
+// Tests Spinlock::lock() and Spinlock::unlock()
 int test_spin_lock() {
     // Setup threads
     if (testing_setup(thread_spin_lock, nullptr) != 0) {
@@ -152,7 +153,51 @@ int test_spin_lock() {
 
 /* Test 3: Condition Variable */
 
+Lock lock_t3;
+CondVar cv_t3;
+
+static int waiting_threads = 0;
+
+void *thread_cond_var(void *args) {
+    (void) args;
+    // Busy waiting
+    while (++wait);    // Some threads will wait longer than others
+    lock_t3.lock();
+    // Broadcast to all threads if its the final thread
+    if (waiting_threads == NUM_THREADS - 1) {
+        cv_t3.broadcast();
+    }
+    // Otherwise, check in at barrier
+    else {
+        waiting_threads++;
+        cv_t3.wait(lock_t3);
+    }
+    lock_t3.unlock();
+    std::cout << "Thread " << uthread_self() << " exited barrier" << std::endl;
+    return (void *) (long) (waiting_threads);
+}
+
+// Tests CondVar::wait() and CondVar::broadcast()
 int test_cond_var() {
+    // Setup threads
+    if (testing_setup(thread_cond_var, nullptr) != 0) {
+        return -1;
+    }
+    // Wait at barrier along with children
+    lock_t3.lock();
+    cv_t3.wait(lock_t3);
+    lock_t3.unlock();
+    // Join threads
+    if (testing_cleanup() != 0) {
+        return -1;
+    }
+    // Check for correct results
+    for (int i = 0; i < NUM_THREADS; i++) {
+        if ((long) t_results[i] != NUM_THREADS) {
+            std::cerr << "Thread count is incorrect" << std::endl;
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -190,32 +235,35 @@ int main(int argc, char *argv[]) {
             std::cerr << "Mutex lock test failed!" << std::endl;
             exit(1);
         }
-        std::cerr << "Mutex lock test passed!" << std::endl;
+        std::cout << "Mutex lock test passed!" << std::endl;
     }
     if (test_all || testnum == SPIN_LOCK) {
         if (test_spin_lock() != 0) {
             std::cerr << "Spinlock test failed!" << std::endl;
             exit(1);
         }
-        std::cerr << "Spinlock test passed!" << std::endl;
+        std::cout << "Spinlock test passed!" << std::endl;
     }
     if (test_all || testnum == COND_VAR) {
         if (test_cond_var() != 0) {
             std::cerr << "Condition variable test failed!" << std::endl;
             exit(1);
         }
+        std::cout << "Condition variable test passed!" << std::endl;
     }
     if (test_all || testnum == MULTI_COND_VAR) {
         if (test_multi_cond_var() != 0) {
             std::cerr << "Multiple condition variables test failed!" << std::endl;
             exit(1);
         }
+        std::cout << "Multiple condition variables test passed!" << std::endl;
     }
     if (test_all || testnum == ASYNC_IO) {
         if (test_async_io() != 0) {
-            std::cerr << "Asynchronus i/o test failed!" << std::endl;
+            std::cerr << "Asynchronus I/O test failed!" << std::endl;
             exit(1);
         }
+        std::cout << "Asynchronus I/O test passed!" << std::endl;
     }
 
     // Exit uthread library

@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "uthread.h"
+#include "uthread_private.h"
 
 // Carry out an asynchronous read request where this thread will be blocked
 // while servicing the read but other ready threads will be scheduled
@@ -35,6 +36,7 @@ ssize_t async_read(int fd, void *buf, size_t count, int offset) {
     // Polling until completion
     int ret_val;
     while ((ret_val = aio_error(&async_read_req)) == EINPROGRESS) {
+        PRINT("Thread %d waiting on I/O\n", running->getId());
         uthread_yield();
     }
     // Check if there is an error
@@ -44,6 +46,7 @@ ssize_t async_read(int fd, void *buf, size_t count, int offset) {
     }
 
     // Return I/O result
+    PRINT("Thread %d ready to read I/O\n", running->getId());
     return aio_return(&async_read_req);
 }
 
@@ -75,6 +78,7 @@ ssize_t async_write(int fd, void *buf, size_t count, int offset) {
     // Polling until completion
     int ret_val;
     while ((ret_val = aio_error(&async_write_req)) == EINPROGRESS) {
+        PRINT("Thread %d waiting on I/O\n", running->getId());
         uthread_yield();
     }
     // Check if there is an error
@@ -84,5 +88,6 @@ ssize_t async_write(int fd, void *buf, size_t count, int offset) {
     }
 
     // Return I/O result
+    PRINT("Thread %d ready to write I/O\n", running->getId());
     return aio_return(&async_write_req);
 }

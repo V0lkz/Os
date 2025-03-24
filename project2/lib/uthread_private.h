@@ -6,9 +6,15 @@
 #ifndef UTHREAD_PRIVATE
 #define UTHREAD_PRIVATE
 
+#ifdef DEBUG
+#define PRINT(format, ...) fprintf(stderr, format, __VA_ARGS__)
+#else
+#define PRINT(format, ...)    // DEBUG OFF
+#endif
+
 #include "TCB.h"
 
-extern TCB *running; // The "Running" thread
+extern TCB *running;    // The "Running" thread
 
 // Switch to the next thread on the ready queue
 // NOTE: switchThreads does not move the running thread to another queue. This
@@ -27,4 +33,4 @@ void addToReady(TCB *th);
 void disableInterrupts();
 void enableInterrupts();
 
-#endif // UTHREAD_PRIVATE
+#endif    // UTHREAD_PRIVATE

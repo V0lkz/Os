@@ -1,11 +1,6 @@
 #include "SpinLock.h"
 
-#ifdef DEBUG
 #include "uthread_private.h"
-#define PRINT(format, ...) fprintf(stderr, format, __VA_ARGS__)
-#else
-#define PRINT(fstr, ...)    // DEBUG OFF
-#endif
 
 SpinLock::SpinLock() {
     // Nothing to do
@@ -15,11 +10,11 @@ SpinLock::SpinLock() {
 void SpinLock::lock() {
     PRINT("Thread %d aquiring spinlock\n", running->getId());
     while (atomic_value.test_and_set());
-    PRINT("Thread %d acquired spinlock\n", running->getId());
+    PRINT("Spinlock acquired by thread %d\n", running->getId());
 }
 
 // Unlock the lock
 void SpinLock::unlock() {
-    PRINT("Thread %d released spinlock\n", running->getId());
+    PRINT("Spinlock released by thread %d\n", running->getId());
     atomic_value.clear();
 }
