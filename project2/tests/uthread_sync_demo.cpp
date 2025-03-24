@@ -57,7 +57,7 @@ void *producer(void *arg) {
 
         // Wait for room in the buffer if needed
         // NOTE: Assuming Mesa semantics
-        if (item_count == SHARED_BUFFER_SIZE) {
+        while (item_count == SHARED_BUFFER_SIZE) {
             need_space_cv.wait(buffer_lock);
         }
 

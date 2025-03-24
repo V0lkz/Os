@@ -170,7 +170,7 @@ static int waiting_threads = 0;
 void *thread_cond_var(void *args) {
     (void) args;
     // Busy waiting
-    while (++wait & 0xFF) {
+    while (++wait &= 0xFFFF) {
         if ((rand() % 100) < 30) {
             uthread_yield();
         }
@@ -178,11 +178,13 @@ void *thread_cond_var(void *args) {
     lock_t3.lock();
     // Broadcast to all threads if its the final thread
     if (waiting_threads == NUM_THREADS - 1) {
+        std::cout << "Thread " << uthread_self() << " arrived at barrier" << std::endl;
         barrier_cv.broadcast();
     }
     // Otherwise, check in at barrier
     else {
         waiting_threads++;
+        std::cout << "Thread " << uthread_self() << " waiting at barrier" << std::endl;
         barrier_cv.wait(lock_t3);
     }
     lock_t3.unlock();
@@ -278,7 +280,9 @@ int test_multi_cond_var() {
     // Let children run
     uthread_yield();
     loop = false;
+    lock_t4.lock();
     empty_cv.broadcast();
+    lock_t4.unlock();
     // Join threads
     if (testing_cleanup() != 0) {
         return -1;
@@ -303,13 +307,15 @@ int test_async_io() {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage ./test <testnum> <quantum_usecs>" << std::endl;
+    if (argc != 3 && argc != 4) {
+        std::cerr << "Usage: ./test <testnum> <quantum_usecs>" << std::endl;
+        std::cerr << "Usage: ./test <testnum> <quantum_usecs> <seed>" << std::endl;
         exit(1);
     }
 
     const int testnum = atoi(argv[1]);
     const int quantum_usecs = atoi(argv[2]);
+    const int seed = (argc == 4 ? atoi(argv[3]) : SEED);
     const bool test_all = (testnum <= 0 ? true : false);
 
     // Initialize uthread library
@@ -318,7 +324,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    srand(SEED);
+    srand(seed);
 
     // Run tests
     if (test_all || testnum == MUTEX_LOCK) {
