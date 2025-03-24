@@ -11,8 +11,10 @@ ifdef DEBUG
 	CFLAGS += -DDEBUG
 endif
 
-# Run make run-server PORT=# to change port
+# Run make PORT=# to change port
 PORT = 8000
+# Run make Q=# to change quantum
+Q = 10000
 
 .PHONY: all run clean
 
@@ -36,11 +38,12 @@ test: $(OBJ_SOLN) ./tests/tests.o
 server:
 	make -C ./tests/server
 
+# Ex. make run-server PORT=8001
 run-server: server
-	./http_server ./tests/server/server_files $(PORT) 10000
+	./http_server ./tests/server/server_files $(PORT) $(Q)
 
 run-tests: test
-	./test -1 10000
+	./test -1 $(Q)
 
 clean:
 	rm -f ./lib/*.o
