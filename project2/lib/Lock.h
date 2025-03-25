@@ -1,12 +1,12 @@
 #ifndef LOCK_H
 #define LOCK_H
 
-#include "TCB.h"
 #include <queue>
 
+#include "TCB.h"
+
 // Synchronization lock
-class Lock
-{
+class Lock {
 public:
     Lock();
 
@@ -19,9 +19,10 @@ public:
     void unlock();
 
 private:
-    bool held;                        // true if the lock is held, false otherwise
-    std::queue<TCB *> entrance_queue; // queue of threads waiting to acquire the lock
-    std::queue<TCB *> signaled_queue; // queue of threads that signaled and are waiting to reacquire the lock
+    bool held;                           // true if the lock is held, false otherwise
+    std::queue<TCB *> entrance_queue;    // queue of threads waiting to acquire the lock
+    std::queue<TCB *>
+        signaled_queue;    // queue of threads that signaled and are waiting to reacquire the lock
 
     // Unlock the lock while interrupts have already been disabled
     // NOTE: Assumes interrupts are disabled
@@ -38,4 +39,4 @@ private:
     friend class CondVar;
 };
 
-#endif // LOCK_H
+#endif    // LOCK_H

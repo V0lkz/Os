@@ -4,8 +4,7 @@
 #include <atomic>
 
 // Synchronization spinlock
-class SpinLock
-{
+class SpinLock {
 public:
     SpinLock();
 
@@ -17,7 +16,7 @@ public:
     void unlock();
 
 private:
-    std::atomic_flag atomic_value = ATOMIC_FLAG_INIT; // Test-and-Set variable
+    std::atomic_flag atomic_value = ATOMIC_FLAG_INIT;    // Test-and-Set variable
 };
 
-#endif // SPIN_LOCK_H
+#endif    // SPIN_LOCK_H

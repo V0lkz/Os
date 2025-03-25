@@ -1,14 +1,14 @@
 #ifndef COND_VAR_H
 #define COND_VAR_H
 
-#include "TCB.h"
-#include "Lock.h"
 #include <queue>
+
+#include "Lock.h"
+#include "TCB.h"
 
 // Synchronization condition variable
 // NOTE: Follows Mesa semantics
-class CondVar
-{
+class CondVar {
 public:
     CondVar();
 
@@ -23,8 +23,8 @@ public:
     void broadcast();
 
 private:
-    Lock *lock;              // Pointer to lock being used with condition variable
-    std::queue<TCB *> queue; // queue of threads waiting for a signal
+    Lock *lock;                 // Pointer to lock being used with condition variable
+    std::queue<TCB *> queue;    // queue of threads waiting for a signal
 };
 
-#endif // COND_VAR_H
+#endif    // COND_VAR_H

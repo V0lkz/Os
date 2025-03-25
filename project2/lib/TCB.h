@@ -6,18 +6,19 @@
 // Define _XOPEN_SOURCE for MacOS
 // #define _XOPEN_SOURCE
 
-#include "uthread.h"
-#include <stdio.h>
 #include <signal.h>
+#include <stdio.h>
+#include <sys/time.h>
 #include <ucontext.h>
 #include <unistd.h>
-#include <sys/time.h>
+
 #include <iostream>
+
+#include "uthread.h"
 
 extern "C" void stub(void *(*start_routine)(void *), void *arg);
 
-enum State
-{
+enum State {
     READY,
     RUNNING,
     BLOCK
@@ -26,9 +27,7 @@ enum State
 /*
  * The thread
  */
-class TCB
-{
-
+class TCB {
 public:
     /**
      * Constructor for TCB. Allocate a thread stack and setup the thread
@@ -112,15 +111,15 @@ public:
      * Context must be public because get and set context must be called within
      * the same function for guaranteed correctness.
      */
-    ucontext_t _context; // The thread's saved context
+    ucontext_t _context;    // The thread's saved context
 
 private:
-    int _tid;        // The thread id number.
-    Priority _pr;    // The priority of the thread (Red, orange or green)
-    int _quantum;    // The time interval, as explained in the pdf.
-    State _state;    // The state of the thread
-    int _lock_count; // The number of locks held by the thread
-    char *_stack;    // The thread's stack
+    int _tid;           // The thread id number.
+    Priority _pr;       // The priority of the thread (Red, orange or green)
+    int _quantum;       // The time interval, as explained in the pdf.
+    State _state;       // The state of the thread
+    int _lock_count;    // The number of locks held by the thread
+    char *_stack;       // The thread's stack
 };
 
 #endif /* TCB_H */
