@@ -74,23 +74,22 @@ void run_test(void *(*lock_func)(void *), const std::string &lock_type,int num_t
 int main() {
     uthread_init(100000);
 
-    std::cout << "Testing Lock Performance...\n";
+    
+    std::cout << "Test 1\n";
     //run_test(function, (string) locktype, (int) number of threads, (int) number of iterations, (int) inner loop size);
-    run_test(critical_section_with_lock, "Lock", 1000, 100000, 1);
+    run_test(critical_section_with_lock, "Lock", 10, 100, 1);
 
     // Reset shared counter
     shared_counter = 0;
+    run_test(critical_section_with_spinlock, "SpinLock", 10, 100, 1);
 
-    std::cout << "Testing SpinLock Performance...\n";
-    run_test(critical_section_with_spinlock, "SpinLock", 1000, 100000, 1);
-
-    run_test(critical_section_with_lock, "Lock", 1000, 3000, 5000);
-
+    std::cout << "Test 2\n";
+    run_test(critical_section_with_lock, "Lock", 10, 100, 10000);
+    
     // Reset shared counter
     shared_counter = 0;
-
     std::cout << "Testing SpinLock Performance...\n";
-    run_test(critical_section_with_spinlock, "SpinLock", 1000, 3000, 5000);
+    run_test(critical_section_with_spinlock, "SpinLock", 10, 100, 10000);
 
 
     uthread_exit(nullptr);
