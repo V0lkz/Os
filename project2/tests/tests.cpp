@@ -307,10 +307,13 @@ static int offset_c = 0;
 void *thread_async_io(void *args) {
     int fd = *((int *) args);
     int tid = uthread_self();
+    std::cout << "Thread %d " << tid << " writing to pipe" << std::endl;
     if (async_write(fd, &tid, sizeof(int), offset_c) == -1) {
         perror("write");
         return nullptr;
     }
+    offset_c += sizeof(int);    // Make sure not to write to same offset
+    std::cout << "Thread %d " << tid << " completed write" << std::endl;
     return nullptr;
 }
 
@@ -326,10 +329,14 @@ int test_async_io() {
     if (testing_setup(thread_async_io, &pipe_fds[1]) != 0) {
         return -1;
     }
-    int offset = 0;
+    int nbytes, offset = 0;
     int tids[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
-        offset += async_read(pipe_fds[0], &tids[i], sizeof(int), offset);
+        if ((nbytes = async_read(pipe_fds[0], &tids[i], sizeof(int), offset)) == -1) {
+            perror("read");
+            return -1;
+        }
+        offset += nbytes;
     }
     // Join threads
     if (testing_cleanup() != 0) {
@@ -342,7 +349,14 @@ int test_async_io() {
     }
     // Collect results
     if (offset != offset_c) {
+        std::cerr << "Offset is incorrect" << std::endl;
         return -1;
+    }
+    for (int i = 0; i < NUM_THREADS; i++) {
+        if (tids[i] != threads[i]) {
+            std::cerr << "Read values are incorrect" << std::endl;
+            return -1;
+        }
     }
     return 0;
 }

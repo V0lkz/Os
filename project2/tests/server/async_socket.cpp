@@ -5,19 +5,21 @@
 #include <stdio.h>
 #include <sys/socket.h>
 
+#include "../../lib/debug.cpp"
 #include "../../lib/uthread.h"
 
 extern int keep_going;
 
 int async_accept(int sockfd, struct sockaddr *addr, unsigned int *addrlen) {
     // Create pollfds array
-    struct pollfd pfds[1];
-    pfds[0].fd = sockfd;
-    pfds[0].events = POLLIN;
+    struct pollfd pfds;
+    pfds.fd = sockfd;
+    pfds.events = POLLIN;
 
     // Poll sockfd and yield thread until it is ready
     int ret_val;
-    while ((ret_val = poll(pfds, 1, POLL_TIMEOUT)) != 1) {
+    while ((ret_val = poll(&pfds, 1, POLL_TIMEOUT)) != 1) {
+        S_PRINT(5000, "Thread %d waiting in accept\n", uthread_self());
         // Check if poll returned an error
         if (ret_val == -1 && errno != EINTR) {
             perror("poll");
@@ -35,5 +37,6 @@ int async_accept(int sockfd, struct sockaddr *addr, unsigned int *addrlen) {
     }
 
     // Call accept and return result
+    PRINT("Thread %d ready to accept\n", uthread_self());
     return accept(sockfd, addr, addrlen);
 }

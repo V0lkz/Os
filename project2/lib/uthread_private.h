@@ -6,12 +6,6 @@
 #ifndef UTHREAD_PRIVATE
 #define UTHREAD_PRIVATE
 
-#ifdef DEBUG
-#define PRINT(format, ...) fprintf(stderr, format, __VA_ARGS__)
-#else
-#define PRINT(format, ...)    // DEBUG OFF
-#endif
-
 #include "TCB.h"
 
 extern TCB *running;    // The "Running" thread

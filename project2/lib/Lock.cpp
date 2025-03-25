@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "debug.cpp"
 #include "uthread_private.h"
 
 Lock::Lock() : held(false) {

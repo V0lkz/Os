@@ -1,5 +1,6 @@
 #include "SpinLock.h"
 
+#include "debug.cpp"
 #include "uthread_private.h"
 
 SpinLock::SpinLock() {

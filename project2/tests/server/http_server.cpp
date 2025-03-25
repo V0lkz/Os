@@ -12,8 +12,8 @@
 
 #include "../../lib/CondVar.h"
 #include "../../lib/Lock.h"
+#include "../../lib/debug.cpp"
 #include "../../lib/uthread.h"
-#include "../../lib/uthread_private.h"
 #include "async_socket.h"
 #include "connection_queue.h"
 #include "http.h"
@@ -35,26 +35,30 @@ void *handle_http_request(void *arg) {
         // strcpy will overwrite the old buffer contents
         strcpy(resource_name, serve_dir);
         // Get a client file descriptor from connection queue
+        PRINT("Thread %d waiting in connection queue\n", uthread_self());
         int client_fd = connection_queue_dequeue(queue);
         if (client_fd == -1) {
             continue;
         }
         // Read in the http resquest
+        printf("Thread %d reading client request\n", uthread_self());
         if (read_http_request(client_fd, resource_name) == -1) {
             close(client_fd);
             continue;
         }
         // Write response
+        PRINT("Thread %d writing server response\n", uthread_self());
         if (write_http_response(client_fd, resource_name) == -1) {
             close(client_fd);
             continue;
         }
         // Close the client file descriptor
+        PRINT("Thread %d closing connection\n", uthread_self());
         if (close(client_fd) == -1) {
             perror("close");
         }
     }
-    printf("Thread %d exiting\n", uthread_self());
+    PRINT("Thread %d exiting\n", uthread_self());
     return NULL;
 }
 
@@ -196,6 +200,7 @@ int main(int argc, char **argv) {
             break;
         }
         // Enqueue the client file descriptor to connection queue
+        PRINT("Thread %d ready to enqueue client fd\n", uthread_self());
         if (connection_queue_enqueue(&queue, client_fd) == -1) {
             close(client_fd);
         }
