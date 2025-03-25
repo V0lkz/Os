@@ -16,7 +16,7 @@ enum IOType { SYNC, ASYNC };
 int pipe_fds[2];
 
 void add_workload() {
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 1000000; ++i) {
         volatile int x = i * i;
     }
 }
@@ -27,17 +27,18 @@ void *thread_io(void *args){
     
     for(int i = 0; i < NUM_IO_OPS; ++i){
         if(io_type == SYNC){
+            //blocks entire process
             if (write(pipe_fds[1], &tid, sizeof(tid)) != sizeof(tid)) {
                 perror("write");
             }
         }else{
+            //allows other threads to run while in io
             if(async_write(pipe_fds[1], &tid, sizeof(tid), 0) == -1){
                 perror("async_write");
             };
         }
     }
     add_workload();
-
     return nullptr;
 }
 
