@@ -1,6 +1,5 @@
 #include <chrono>
 #include <iostream>
-#include <vector>
 
 #include "../lib/Lock.h"
 #include "../lib/SpinLock.h"
@@ -35,27 +34,24 @@ void run_test(void *(*lock_func)(void *), const std::string &lock_type) {
     // Start timer
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // Create threads
-    std::vector<int> threads;
-    for (int i = 0, tid = -1; i < NUM_THREADS; i++) {
-        if ((tid = uthread_create(lock_func, nullptr)) == -1) {
+    int tids[NUM_THREADS];
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        tids[i] = uthread_create(lock_func, nullptr);
+        if (tids[i] == -1) {
             std::cerr << "uthread_create\n";
         }
-        threads.push_back(tid);
     }
 
-    // Join threads
-    for (int thread : threads) {
-        if (uthread_join(thread, nullptr) != 0) {
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        if (uthread_join(tids[i], nullptr) != 0) {
             std::cerr << "uthread_join\n";
         }
     }
 
-    // End timer
     auto end_time = std::chrono::high_resolution_clock::now();
     double duration = std::chrono::duration<double, std::milli>(end_time - start_time).count();
 
-    std::cout << lock_type << " completed in " << duration
+    std::cout << lock_type << " completed: " << duration
               << " ms, final counter: " << shared_counter << std::endl;
 }
 
