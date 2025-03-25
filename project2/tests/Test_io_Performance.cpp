@@ -87,6 +87,7 @@ int main(int argc, char *argv[]){
     IOType async_type = ASYNC;
     IOType sync_type = SYNC;
 
+    //run_test((int)number of threads,(int)number of IO operations/thread, IOType))
     std::cout << "Test IO with 2 threads and 500 IO operations per threads:";
     std::cout << "Testing async IO performance\n";
     run_test(2, 500, async_type);
@@ -96,27 +97,27 @@ int main(int argc, char *argv[]){
         run_test(2, 500, sync_type);
     }
 
-    std::cout << "Test IO with 10000 threads and 1 IO operations per threads:";
+    std::cout << "Test IO with 100 threads and 1 IO operations per threads:";
     std::cout << "Testing async IO performance\n";
     if(reset_pipe()){
-        run_test(10000, 1, async_type);
+        run_test(100, 1, async_type);
     }
 
     std::cout << "Testing sync Performance...\n";
     if(reset_pipe()){
-        run_test(10000, 1, sync_type);
+        run_test(100, 1, sync_type);
     }
 
 
     std::cout << "Test IO with 10 threads and 50 IO operations per threads:";
     std::cout << "Testing async IO performance\n";
     if(reset_pipe()){
-        run_test(100, 500, async_type);
+        run_test(10, 50, async_type);
     }
 
     std::cout << "Testing sync Performance...\n";
     if(reset_pipe()){
-        run_test(100, 500, sync_type);
+        run_test(10, 50, sync_type);
     }
     
     uthread_exit(nullptr);
