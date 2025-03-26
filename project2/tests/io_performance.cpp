@@ -73,7 +73,7 @@ void *thread_io(void *args) {
 }
 
 // Run thread test
-void run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int num_iter) {
+double run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int num_iter) {
     // Create thread array and args
     int *tids = (int *) malloc(sizeof(int) * num_threads);
     ThreadArg args = {
@@ -105,6 +105,8 @@ void run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int num
     std::cout << "Test IO with " << num_threads << " threads and " << num_ops
               << " IO operations per threads" << " with size " << op_size << " bytes\n"
               << "completed in: " << dur << " ms" << std::endl;
+
+    return dur;
 }
 
 // Update file for next I/O operation
@@ -161,6 +163,8 @@ int main(int argc, char *argv[]) {
     IOType async_type = ASYNC;
     IOType sync_type = SYNC;
 
+    double async, sync;
+
     /**
      * run_test(
      *  number of threads,
@@ -173,11 +177,18 @@ int main(int argc, char *argv[]) {
 
     reset_file("Test 1: (async)\n");
     std::cout << "Testing async IO performance\n";
-    run_test(num_threads, num_ops, async_type, op_size, num_iters);
+    async = run_test(num_threads, num_ops, async_type, op_size, num_iters);
 
     reset_file("\nTest 2: (sync)\n");
     std::cout << "Testing sync Performance...\n";
-    run_test(num_threads, num_ops, sync_type, op_size, num_iters);
+    sync = run_test(num_threads, num_ops, sync_type, op_size, num_iters);
+
+    double ratio = sync / async;
+    if (ratio > 1) {
+        std::cout << "Performance ratio: async is " << ratio << " times faster\n";
+    } else {
+        std::cout << "Performance ratio: async is " << ratio << " times slower\n";
+    }
 
     // Exit uthread library
     uthread_exit(nullptr);
