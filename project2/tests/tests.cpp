@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 #include "../lib/CondVar.h"
@@ -50,12 +51,34 @@ int testing_cleanup() {
     return 0;
 }
 
+#define BUFLEN 60
+
 // Display test message
-inline void display_test(const char *message) {
-    std::cout << "====== " << message << " ======" << std::endl;
+void display_test(const char *message) {
+    char buf[BUFLEN + 1];
+    memset(buf, '=', BUFLEN);
+    buf[BUFLEN] = '\0';
+    int length = strlen(message);
+    int offset = (BUFLEN / 2) - (length / 2);
+    buf[offset - 1] = ' ';
+    strcpy(buf + offset, message);
+    buf[offset + length] = ' ';
+    std::cout << buf << std::endl;
 }
 
-/* Test 1: Mutex Lock */
+// Randomly yield thread
+inline void random_yield(const int chance) {
+    if ((rand() % 100) < chance) {
+        uthread_yield();
+    }
+}
+
+// Busy waiting loop
+inline void busy_wait(const int bitstring) {
+    while (++wait &= bitstring);
+}
+
+/* ====== Test 1: Mutex Lock ====== */
 
 #define NUM_ITER_T1 5
 
@@ -68,10 +91,18 @@ void *thread_mutex_lock(void *args) {
     (void) args;
     int tid = uthread_self();
     for (int i = 0; i < NUM_ITER_T1; i++) {
+        // Randomly yield after every line to ensure robustness
+        random_yield(25);
         lock_t1.lock();
-        values_t1[counter_t1++] = tid;
-        while (++wait &= 0x7FFFFFF);
+        random_yield(25);
+        values_t1[counter_t1] = tid;
+        random_yield(25);
+        counter_t1++;
+        random_yield(25);
+        busy_wait(0x7FFFFFF);
+        random_yield(25);
         lock_t1.unlock();
+        random_yield(25);
     }
     std::cout << "Thread " << tid << " finished" << std::endl;
     return (void *) (long) tid;
@@ -88,7 +119,7 @@ int test_mutex_lock() {
     if (testing_cleanup() != 0) {
         return -1;
     }
-    // Check for correct results
+    // Check for correctness
     if (counter_t1 != NUM_ITER_T1 * NUM_THREADS) {
         std::cerr << "Counter is incorrect" << std::endl;
         return -1;
@@ -121,10 +152,16 @@ void *thread_spin_lock(void *args) {
     (void) args;
     int tid = uthread_self();
     for (int i = 0; i < NUM_ITER_T1; i++) {
+        // Randomly yield after every line to ensure robustness
+        random_yield(25);
         spinlock_t2.lock();
-        values_t2[counter_t2++] = tid;
-        while (++wait &= 0x3FFFFFF);
+        random_yield(25);
+        values_t2[counter_t2] = tid;
+        random_yield(25);
+        counter_t2++;
+        random_yield(25);
         spinlock_t2.unlock();
+        random_yield(25);
     }
     std::cout << "Thread " << tid << " finished" << std::endl;
     return (void *) (long) tid;
@@ -170,21 +207,22 @@ static int waiting_threads = 0;
 
 void *thread_cond_var(void *args) {
     (void) args;
-    // Busy waiting
-    while (++wait &= 0xFFFF) {
-        if ((rand() % 100) < 30) {
-            uthread_yield();
-        }
+    // Random yielding
+    for (int i = 0; i < NUM_THREADS; i++) {
+        random_yield(50);
     }
     lock_t3.lock();
     // Broadcast to all threads if its the final thread
     if (waiting_threads == NUM_THREADS - 1) {
+        random_yield(33);
         std::cout << "Thread " << uthread_self() << " arrived at barrier" << std::endl;
         barrier_cv.broadcast();
     }
     // Otherwise, check in at barrier
     else {
+        random_yield(33);
         waiting_threads++;
+        random_yield(33);
         std::cout << "Thread " << uthread_self() << " waiting at barrier" << std::endl;
         barrier_cv.wait(lock_t3);
     }
@@ -231,23 +269,32 @@ void *thread_multi_cond_var(void *args) {
     (void) args;
     long items_consumed = 0;
     while (loop) {
-        // Acquire lock
+        // Randomly yield after every line to ensure robustness
+        random_yield(25);
         lock_t4.lock();
+        random_yield(25);
         while (length == 0) {
+            random_yield(25);
             empty_cv.wait(lock_t4);
             if (!loop) {
                 lock_t4.unlock();
                 return (void *) items_consumed;
             }
         }
-        // Remove item from buffer
-        std::cout << "Thread " << uthread_self() << " read " << buffer_t4[read_idx++] << std::endl;
+        random_yield(25);
+        std::cout << "Thread " << uthread_self() << " read " << buffer_t4[read_idx] << std::endl;
+        read_idx++;
+        random_yield(25);
         read_idx = read_idx % NUM_THREADS;
+        random_yield(25);
         length--;
+        random_yield(25);
         items_consumed++;
-        // Release lock
+        random_yield(25);
         full_cv.signal();
+        random_yield(25);
         lock_t4.unlock();
+        random_yield(25);
     }
     return (void *) items_consumed;
 }
@@ -261,28 +308,35 @@ int test_multi_cond_var() {
     }
     // Produce items to add into buffer
     for (int i = 0; i < NUM_THREADS * 2; i++) {
-        // Acquire lock
+        // Randomly yield after every line to ensure robustness
+        random_yield(25);
         lock_t4.lock();
+        random_yield(25);
         while (length == NUM_THREADS) {
+            random_yield(25);
             full_cv.wait(lock_t4);
         }
-        // Add item to buffer
-        buffer_t4[write_idx++] = i;
+        random_yield(25);
+        buffer_t4[write_idx] = i;
+        random_yield(25);
+        write_idx++;
+        random_yield(25);
         write_idx = write_idx % NUM_THREADS;
+        random_yield(25);
         length++;
-        // Release lock
+        random_yield(25);
         empty_cv.signal();
+        random_yield(25);
         lock_t4.unlock();
-        // Randomly yield to let children run
-        if ((rand() % 100) < 25) {
-            uthread_yield();
-        }
+        random_yield(25);
     }
-    // Let children run
-    uthread_yield();
+    // Broadcast to children
     loop = false;
+    random_yield(25);
     lock_t4.lock();
+    random_yield(25);
     empty_cv.broadcast();
+    random_yield(25);
     lock_t4.unlock();
     // Join threads
     if (testing_cleanup() != 0) {
@@ -300,20 +354,27 @@ int test_multi_cond_var() {
     return 0;
 }
 
-/* Test 5: Asynchronus I/O */
+/* ====== Test 5: Asynchronus I/O ====== */
 
+static Lock lock_t5;
 static int offset_c = 0;
 
 void *thread_async_io(void *args) {
     int fd = *((int *) args);
     int tid = uthread_self();
-    std::cout << "Thread %d " << tid << " writing to pipe" << std::endl;
+    random_yield(25);
+    lock_t5.lock();
+    random_yield(25);
+    std::cout << "Thread " << tid << " writing to pipe" << std::endl;
     if (async_write(fd, &tid, sizeof(int), offset_c) == -1) {
         perror("write");
         return nullptr;
     }
+    random_yield(25);
     offset_c += sizeof(int);    // Make sure not to write to same offset
-    std::cout << "Thread %d " << tid << " completed write" << std::endl;
+    random_yield(25);
+    lock_t5.unlock();
+    std::cout << "Thread " << tid << " completed write" << std::endl;
     return nullptr;
 }
 
@@ -332,11 +393,14 @@ int test_async_io() {
     int nbytes, offset = 0;
     int tids[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
+        random_yield(25);
         if ((nbytes = async_read(pipe_fds[0], &tids[i], sizeof(int), offset)) == -1) {
             perror("read");
             return -1;
         }
+        random_yield(25);
         offset += nbytes;
+        random_yield(25);
     }
     // Join threads
     if (testing_cleanup() != 0) {
@@ -357,9 +421,13 @@ int test_async_io() {
             std::cerr << "Read values are incorrect" << std::endl;
             return -1;
         }
+        std::cout << tids[i] << " ";
     }
+    std::cout << std::endl;
     return 0;
 }
+
+/* ======= Main ====== */
 
 int main(int argc, char *argv[]) {
     if (argc != 3 && argc != 4) {
@@ -417,6 +485,8 @@ int main(int argc, char *argv[]) {
         }
         std::cout << "Asynchronus I/O test passed!" << std::endl;
     }
+    std::cout << "============================================================" << std::endl;
+    std::cout << "All executed tests passed!" << std::endl;
 
     // Exit uthread library
     uthread_exit(nullptr);
