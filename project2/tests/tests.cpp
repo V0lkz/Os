@@ -139,7 +139,7 @@ int test_mutex_lock() {
     return 0;
 }
 
-/* Test 2: SpinLock */
+/* ====== Test 2: SpinLock ====== */
 
 #define NUM_ITER_T2 5
 
@@ -198,7 +198,7 @@ int test_spin_lock() {
     return 0;
 }
 
-/* Test 3: Condition Variable */
+/* ====== Test 3: Condition Variable ====== */
 
 static Lock lock_t3;
 static CondVar barrier_cv;
@@ -252,7 +252,7 @@ int test_cond_var() {
     return 0;
 }
 
-/* Test 4: Multiple Condition Variables */
+/* ====== Test 4: Multiple Condition Variables ====== */
 
 static Lock lock_t4;
 static CondVar full_cv;
