@@ -36,6 +36,7 @@ PORT = 8000    # Run make PORT=# to change port
 all: uthread-sync-demo-from-soln test lockperformance ioperformance server
 
 debug:
+	$(MAKE) clean
 	$(MAKE) all DEBUG=1
 
 # Target for async_io b/c -Wmissing-field-initializers

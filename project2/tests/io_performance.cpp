@@ -111,6 +111,7 @@ double run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int n
 
 // Update file for next I/O operation
 void reset_file(const char *message) {
+#ifdef DEBUG
     // Move file offset to the end
     if (lseek(filedes, 0, SEEK_END) == -1) {
         std::cerr << "Failed to reset file: ";
@@ -127,6 +128,14 @@ void reset_file(const char *message) {
         exit(1);
     }
     offset += length;
+#else
+    (void) message;
+    if (ftruncate(filedes, 0) == -1) {
+        perror("ftruncate");
+        exit(1);
+    }
+    offset = 0;
+#endif
 }
 
 int main(int argc, char *argv[]) {
