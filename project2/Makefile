@@ -49,12 +49,6 @@ uthread-sync-demo-from-soln: $(OBJ_SOLN) $(MAIN_OBJ_UTHRAD_SYNC)
 uthread-sync-demo: $(OBJ) $(MAIN_OBJ_UTHRAD_SYNC)
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
-lockperformance: $(OBJ_SOLN) ./tests/LockPerformance.o
-	$(CC) $(CFLAGS) -o $@ $^ -lrt
-
-ioperformance: $(OBJ_SOLN) ./tests/Test_io_Performance.o
-	$(CC) $(CFLAGS) -o $@ $^ -lrt
-
 test: $(OBJ_SOLN) ./tests/tests.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 

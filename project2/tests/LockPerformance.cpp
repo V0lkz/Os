@@ -94,7 +94,7 @@ int main() {
    
     std::cout << "Test 1\n";
     //run_test(function, (string) locktype, (int) number of threads, (int) number of iterations, (int) inner loop size);
-    run_test(critical_section_with_lock, "Lock", 2, 100, 100);
+    run_test(critical_section_with_mutexlock, "Lock", 2, 100, 100);
 
 
     // Reset shared counter
