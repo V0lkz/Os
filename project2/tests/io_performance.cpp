@@ -23,9 +23,10 @@ struct ThreadArg {
 };
 
 static int filedes;
-static off_t offset = 0;
+static off_t offset;
+
 volatile long x = 0;
-char *buf = nullptr;
+static char *buf = nullptr;
 
 void add_workload(int num_iters) {
     for (int i = 0; i < num_iters; ++i) {
@@ -64,7 +65,7 @@ void *thread_io(void *args) {
         else {
             // Reserve space in file for id
             offset += length;
-            if (async_write(filedes, buf, length, offset - length) != length) {
+            if (async_write(filedes, buf, length, offset) != length) {
                 perror("async_write");
             }
         }
