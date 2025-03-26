@@ -1,173 +1,145 @@
 #include <chrono>
 #include <iostream>
-#include <vector>
-#include <fcntl.h>
-#include <cstdlib>
-#include <unistd.h>
-#include <cstring>
+#include "../lib/Lock.h"
+#include "../lib/SpinLock.h"
 #include "../lib/uthread.h"
-#include "../lib/async_io.h"
 
-enum IOType { SYNC, ASYNC };
 
-int file_fd;
-
-struct ThreadArg{
-    IOType io_type;
-    int num_ops;
-    size_t buffer_size;
-    int num_iter;
+struct ThreadArgs {
+   int num_iterations;
+   int inner_loop_size;
 };
 
-void add_workload(int num_iteration){
-    for (int i = 0; i < num_iteration; ++i) {
-        //no complier optimalization
-        volatile int x = i * i;
-    }
+
+Lock global_lock;
+SpinLock spin_lock;
+uint64_t shared_counter = 0;
+
+
+void add_workload(){
+   for (int i = 0; i < 100000; ++i) {
+       volatile int x = i * i;
+   }
 }
 
-void *thread_io(void *args){
-    int tid = uthread_self();
-    ThreadArg *params = (ThreadArg *)args;
-    IOType mode = params->io_type;
-    int num_ops = params->num_ops;
-    size_t buf_size = params->buffer_size;
-    char *buffer = nullptr;
-    if (posix_memalign((void **)&buffer, 4096, buf_size) != 0) {
-        perror("posix_memalign");
-        return nullptr;
-    }
-   
-    memset(buffer, tid, params->buffer_size);
-    add_workload(params->num_iter);
-    for(int i = 0; i < num_ops; ++i){
-        off_t offset = (tid * num_ops + i) * buf_size;
-        if(mode == SYNC){
-            //write I/O to completion
-            if (pwrite(file_fd, buffer, buf_size, offset) != (ssize_t)buf_size) {
-                perror("write");
-            }
-        }else{
-            //allows other threads to run while in io
-            if(async_write(file_fd, buffer, buf_size, offset) == -1) {
-                perror("async_write");
-            };
-        }
-    }
-    
-    free(buffer);
-    return nullptr;
+
+void *critical_section_with_mutexlock(void *arg) {
+   int iterations_size = ((ThreadArgs *) arg)->num_iterations;
+   int loop_size = ((ThreadArgs *)arg)->inner_loop_size;
+   add_workload();
+   for (int i = 0; i < iterations_size; i++) {
+       global_lock.lock();
+       for (int j = 0; j < loop_size; j++) { 
+           shared_counter++;         // Critical section
+       } 
+     
+       global_lock.unlock();
+   }
+   return nullptr;
 }
 
-void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size, int num_iter = 10000){
-    auto start = std::chrono::high_resolution_clock::now();
 
-    int tids[num_threads];
-    ThreadArg args = {mode, num_ops, buf_size, num_iter};
-    std::vector<ThreadArg> args_vec(num_threads);
-    for (int i = 0; i < num_threads; ++i){
-        args_vec[i] = {mode, num_ops, buf_size, num_iter};
-        tids[i] = uthread_create(thread_io, &args_vec[i]);
-        if (tids[i] == -1) std::cerr << "uthread_create\n";
-    }
-
-    for (int i = 0; i < num_threads; ++i) {
-        if (uthread_join(tids[i], nullptr) != 0) {
-            std::cerr << "uthread_join\n";
-        }
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    double dur = std::chrono::duration<double, std::milli>(end - start).count();
-
-    std::cout <<"Test IO with " << num_threads << " threads and "<< num_ops 
-              << " IO operations per threads" << " with size" << buf_size << " bytes\n"
-              << "completed in: " << dur << " ms" << std::endl;
-    ftruncate(file_fd, 0);
+void *critical_section_with_spinlock(void *arg) {
+   int iterations_size = ((ThreadArgs *) arg)->num_iterations;
+   int loop_size = ((ThreadArgs *)arg)->inner_loop_size;
+   add_workload();
+   for (int i = 0; i < iterations_size; i++) {
+       spin_lock.lock();
+       for (int j = 0; j < loop_size; j++) { 
+           shared_counter++;        // Critical section
+       }
+       spin_lock.unlock();
+   }
+   return nullptr;
 }
 
-int main(){
-    uthread_init(10000);
 
-    file_fd = open("test_io_output.bin", O_CREAT | O_RDWR | O_TRUNC | O_DIRECT, 0644);
-    if (file_fd == -1) {
-        perror("open file");
-        return 1;
-    }
-
-    IOType async_type = ASYNC;
-    IOType sync_type = SYNC;
-
-    //run_test(number of thread, number of io  operation/thread, size of io, number of iteration in the workload)
-    std::cout << "===============================================\n";
-    std::cout << "| Test 1 with 10000 iteration in the workload |\n";
-    std::cout << "===============================================\n";
-
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 8);
-
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 8 );
-
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 32 );
-
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 32);
-
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 64 );
-
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 64 );
+void run_test(void *(*lock_func)(void *), const std::string &lock_type,int num_threads,int num_iterations ,int num_inner_loop) {
+   // Start timer
+   auto start_time = std::chrono::high_resolution_clock::now();
 
 
-    std::cout << "=================================================\n";
-    std::cout << "| Test 2 with 1000 iteration in the workload |\n";
-    std::cout << "=================================================\n";
-    run_test(10, 5, async_type, 1024 * 8, 1000  );
+   int tids[num_threads];
+   ThreadArgs arg = { num_iterations, num_inner_loop };
+   for (int i = 0; i < num_threads; ++i) {
+       tids[i] = uthread_create(lock_func, &arg);
+       if (tids[i] == -1) {
+           std::cerr << "uthread_create\n";
+       }
+   }
 
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 8, 1000  );
 
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 32, 1000  );
 
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 32, 1000  );
 
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 64, 1000  );
+   for (int i = 0; i < num_threads; ++i) {
+       if (uthread_join(tids[i], nullptr) != 0) {
+           std::cerr << "uthread_join\n";
+       }
+   }
 
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 64, 1000  );
 
-    std::cout << "=================================================\n";
-    std::cout << "| Test 3 with 100000 iteration in the workload |\n";
-    std::cout << "=================================================\n";
-    run_test(10, 5, async_type, 1024 * 8, 100000  );
 
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 8, 100000  );
 
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 32, 100000  );
+   // Stop timer
+   auto end_time = std::chrono::high_resolution_clock::now();
+   double duration = std::chrono::duration<double, std::milli>(end_time - start_time).count();
 
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 32, 100000 );
 
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 64, 100000 );
 
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 64, 100000 );
 
-    std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 128, 100000 );
-
-    std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 128, 100000 );
-    
-    uthread_exit(nullptr);
-    return 1;  
+   std::cout << "Lock: "<< lock_type << " with " << num_threads << " threads, "
+         << num_iterations << " iterations/thread, "
+         << num_inner_loop << " ops/critical-section"
+         << " completed in " << duration << " ms " << std::endl;
 }
+
+
+int main() {
+   uthread_init(100000);
+ 
+   std::cout << "Test 1\n";
+   //run_test(function, (string) locktype, (int) number of threads, (int) number of iterations, (int) inner loop size);
+   run_test(critical_section_with_mutexlock, "Lock", 2, 100, 100);
+
+
+   // Reset shared counter
+   shared_counter = 0;
+   run_test(critical_section_with_spinlock, "SpinLock", 2, 100, 100);
+
+
+   std::cout << "Test 2\n";
+   run_test(critical_section_with_mutexlock, "Lock", 2, 100, 1000);
+ 
+   // Reset shared counter
+   shared_counter = 0;
+
+
+   run_test(critical_section_with_spinlock, "SpinLock", 2, 100, 1000);
+
+
+   std::cout << "Test 3\n";
+   run_test(critical_section_with_mutexlock, "Lock", 2, 100, 12000);
+ 
+   // Reset shared counter
+   shared_counter = 0;
+
+
+   run_test(critical_section_with_spinlock, "SpinLock", 2, 100, 12000);
+
+
+   std::cout << "Test 4\n";
+   run_test(critical_section_with_mutexlock, "Lock", 20, 100, 10000);
+ 
+   // Reset shared counter
+   shared_counter = 0;
+
+
+   run_test(critical_section_with_spinlock, "SpinLock", 20, 100, 10000);
+
+
+   uthread_exit(nullptr);
+   return 0;
+}
+
+
+
