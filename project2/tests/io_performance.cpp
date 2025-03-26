@@ -30,7 +30,7 @@ static char *buf = nullptr;
 
 void add_workload(int num_iters) {
     for (int i = 0; i < num_iters; i++) {
-        volatile x += i * i;
+        x += i * i;
     }
 }
 
