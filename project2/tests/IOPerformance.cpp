@@ -9,6 +9,8 @@
 #include "../lib/async_io.h"
 #include "../lib/uthread.h"
 
+#define MAX_LEN 80
+
 enum IOType {
     SYNC,
     ASYNC
@@ -20,37 +22,50 @@ struct ThreadArg {
 };
 
 static int fd;
-static int offset = -1;
-static volatile int x = 0;
+static int offset = 0;
+static volatile long x = 0;
 
 void add_workload() {
     for (int i = 0; i < 1000000; ++i) {
-        x *= i;
+        x += i * i;
     }
 }
 
+// Thread Function
 void *thread_io(void *args) {
     ThreadArg *params = (ThreadArg *) args;
     IOType mode = params->io_type;
     int num_ops = params->num_ops;
     int tid = uthread_self();
-    char digit = tid + 'a' - 1;
 
-    add_workload();
+    // Write thread id as a string
+    char buf[MAX_LEN];
+    memset(buf, 0, MAX_LEN);
+    snprintf(buf, MAX_LEN, "%d ", tid);
+
+    int length = strlen(buf);
+
+    if (offset == 0) {
+        offset -= length;
+    }
+
     for (int i = 0; i < num_ops; ++i) {
+        // Write I/O to completion
         if (mode == SYNC) {
-            // Write I/O to completion
-            if (write(fd, &digit, sizeof(digit)) == -1) {
+            if (write(fd, buf, length) == -1) {
                 perror("write");
             }
-            offset += sizeof(char);
-        } else {
-            // Allow other threads to run while waiting for I/O
-            offset += sizeof(char);
-            if (async_write(fd, &digit, sizeof(digit), offset) == -1) {
+            offset += length;
+        }
+        // Allow other threads to run while waiting for I/O
+        else {
+            // Reserve space in file for id
+            offset += length;
+            if (async_write(fd, buf, length, offset - length) == -1) {
                 perror("async_write");
             };
         }
+        // add_workload();
     }
     return nullptr;
 }
@@ -79,22 +94,21 @@ void run_test(int num_threads, int num_ops, IOType mode) {
     free(tids);
 }
 
-bool reset_file() {
-    char newline = '\n';
-    write(fd, &newline, sizeof(char));
-    offset += sizeof(char);
-
-    return true;
-    // Truncate file to 0 bytes
-    if (ftruncate(fd, 0) == -1) {
-        perror("ftruncate");
-        return false;
-    }
-    // Move file offset to the start
-    if (lseek(fd, 0, SEEK_SET) == -1) {
+bool reset_file(const char *message) {
+    // Move file offset to the end
+    if (lseek(fd, 0, SEEK_END) == -1) {
         perror("lseek");
         return false;
     }
+
+    // Write new line at the end of the file
+    char buf[MAX_LEN];
+    snprintf(buf, MAX_LEN, "%s", message);
+    int length = strlen(buf);
+    // Write to file
+    write(fd, buf, length);
+    offset += length;
+
     return true;
 }
 
@@ -124,38 +138,52 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Test IO with 1 thread and " << num_ops << " IO operations per thread:\n";
 
+    if (!reset_file("Test 1: (async)\n")) {
+        std::cerr << "Failed to reset file" << std::endl;
+    }
+
     std::cout << "Testing async IO performance...\n";
     run_test(1, num_ops, async_type);
 
-    std::cout << "Testing sync Performance...\n";
-    if (reset_file()) {
-        run_test(1, num_ops, sync_type);
+    if (!reset_file("\nTest 2: (sync)\n")) {
+        std::cerr << "Failed to reset file" << std::endl;
     }
+
+    std::cout << "Testing sync Performance...\n";
+    run_test(1, num_ops, sync_type);
 
     std::cout << "Test IO with " << num_threads << " threads and 1 IO operation per threads:\n";
 
+    if (!reset_file("\nTest 3: (async)\n")) {
+        std::cerr << "Failed to reset file" << std::endl;
+    }
+
     std::cout << "Testing async IO performance...\n";
-    if (reset_file()) {
-        run_test(num_threads, 1, async_type);
+    run_test(num_threads, 1, async_type);
+
+    if (!reset_file("\nTest 4: (sync)\n")) {
+        std::cerr << "Failed to reset file" << std::endl;
     }
 
     std::cout << "Testing sync Performance...\n";
-    if (reset_file()) {
-        run_test(num_threads, 1, sync_type);
-    }
+    run_test(num_threads, 1, sync_type);
 
     std::cout << "Test IO with " << num_threads << " threads and " << num_ops
               << " IO operations per threads:\n";
 
+    if (!reset_file("\nTest 5: (async)\n")) {
+        std::cerr << "Failed to reset file" << std::endl;
+    }
+
     std::cout << "Testing async IO performance...\n";
-    if (reset_file()) {
-        run_test(num_threads, num_ops, async_type);
+    run_test(num_threads, num_ops, async_type);
+
+    if (!reset_file("\nTest 6: (sync)\n")) {
+        std::cerr << "Failed to reset file" << std::endl;
     }
 
     std::cout << "Testing sync Performance...\n";
-    if (reset_file()) {
-        run_test(num_threads, num_ops, sync_type);
-    }
+    run_test(num_threads, num_ops, sync_type);
 
     uthread_exit(nullptr);
     return 1;

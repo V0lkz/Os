@@ -89,4 +89,4 @@ clean:
 	rm -f ./lib/*.o
 	rm -f ./tests/*.o
 	rm -f $(SERVER_DIR)/*.so $(SERVER_DIR)/*.o $(SERVER_DIR)/http_server
-	rm -f *.o uthread-sync-demo lockperformance ioperformance test http_server
+	rm -f *.o uthread-sync-demo lockperformance ioperformance ioperformance.txt test http_server
