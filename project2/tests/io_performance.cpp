@@ -29,7 +29,7 @@ volatile long x = 0;
 static char *buf = nullptr;
 
 void add_workload(int num_iters) {
-    for (int i = 0; i < num_iters; ++i) {
+    for (int i = 0; i < num_iters; i++) {
         x += i * i;
     }
 }
@@ -50,8 +50,6 @@ void *thread_io(void *args) {
         offset -= length;
     }
 
-    add_workload(num_iters);
-
     // Write loop
     for (int i = 0; i < num_ops; ++i) {
         // Write I/O to completion
@@ -69,6 +67,7 @@ void *thread_io(void *args) {
                 perror("async_write");
             }
         }
+        add_workload(num_iters);
     }
     return nullptr;
 }
