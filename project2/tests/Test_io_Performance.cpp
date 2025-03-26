@@ -55,10 +55,6 @@ void *thread_io(void *args){
 }
 
 
-
-
-
-
 void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size ){
     auto start = std::chrono::high_resolution_clock::now();
 
