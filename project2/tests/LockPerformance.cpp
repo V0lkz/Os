@@ -105,7 +105,7 @@ int main() {
 
 
     std::cout << "Test 2\n";
-    run_test(critical_section_with_lock, "Lock", 2, 100, 1000);
+    run_test(critical_section_with_mutexlock, "Lock", 2, 100, 1000);
    
     // Reset shared counter
     shared_counter = 0;
@@ -115,7 +115,7 @@ int main() {
 
 
     std::cout << "Test 3\n";
-    run_test(critical_section_with_lock, "Lock", 2, 100, 12000);
+    run_test(critical_section_with_mutexlock, "Lock", 2, 100, 12000);
    
     // Reset shared counter
     shared_counter = 0;
@@ -125,7 +125,7 @@ int main() {
 
 
     std::cout << "Test 2\n";
-    run_test(critical_section_with_lock, "Lock", 20, 100, 10000);
+    run_test(critical_section_with_mutexlock, "Lock", 20, 100, 10000);
    
     // Reset shared counter
     shared_counter = 0;
