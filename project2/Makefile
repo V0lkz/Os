@@ -61,6 +61,9 @@ lockperformance: $(OBJ_SOLN) ./tests/lock_performance.o
 ioperformance: $(OBJ_SOLN) ./tests/io_performance.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
+hcioperformance: $(OBJ_SOLN) ./tests/hardcoded_io_performance.o
+	$(CC) $(CFLAGS) -o $@ $^ -lrt
+
 server:
 	$(MAKE) -C $(SERVER_DIR)
 
