@@ -1,20 +1,28 @@
+# Compiler options
 CC = g++
 CFLAGS = -Wall -Wextra -g --std=c++14
 # Remove lrt for MacOS
 
+# Object files
 DEPS = TCB.h uthread.h uthread_private.h Lock.h CondVar.h SpinLock.h async_io.h
 OBJ = ./lib/TCB.o ./lib/uthread.o ./lib/Lock.o ./lib/CondVar.o ./lib/SpinLock.o ./lib/async_io.o
 OBJ_SOLN = ./solution/TCB_soln.o ./solution/uthread_soln.o ./lib/Lock.o ./lib/CondVar.o ./lib/SpinLock.o ./lib/async_io.o
 MAIN_OBJ_UTHRAD_SYNC = ./tests/uthread_sync_demo.o
 
-# Run make DEBUG=1 to enable debug statements
+# Make with DEBUG=1 to enable debug statements
 ifdef DEBUG
 	CFLAGS += -DDEBUG
 endif
 
-# Tests
+# Unit Tests
 TESTNUM = -1
 QUANTUM = 10000
+
+# Performance test
+NTHREADS = 10
+NITER = 100
+NLOOPS = 10000
+NOPS = 100
 
 # HTTP Server
 SERVER_DIR = ./tests/server
@@ -26,8 +34,9 @@ PORT = 8000    # Run make PORT=# to change port
 all: uthread-sync-demo-from-soln test lockperformance ioperformance server
 
 debug:
-	$(MAKE) DEBUG=1
+	$(MAKE) all DEBUG=1
 
+# Target for async_io b/c -Wmissing-field-initializers
 ./lib/async_io.o: ./lib/async_io.cpp
 	$(CC) $(CFLAGS) -Wno-missing-field-initializers -c -o $@ $^
 
@@ -53,16 +62,18 @@ server:
 	$(MAKE) -C $(SERVER_DIR)
 
 # Run function tests
+# Ex. make run-tests TESTNUM=5
 run-tests: test
 	./test $(TESTNUM) $(QUANTUM)
 
 # Run lock performance test
+# Ex. make run-lock NTHREADS=20 NLOOPS=100000
 run-lock: lockperformance
-	./lockperformance $(QUANTUM)
+	./lockperformance $(NTHREADS) $(NITER) $(QUANTUM) $(NLOOPS)
 
 # Run I/O performance test
 run-io: ioperformance
-	./ioperformance $(QUANTUM)
+	./ioperformance $(NTHREADS) $(NOPS) $(QUANTUM)
 
 # Run HTTP server
 # Ex. make run-server PORT=8001
@@ -70,7 +81,7 @@ run-server: server
 	./http_server $(SERVER_FILES) $(PORT) $(QUANTUM)
 
 # Run server concurrency test
-# Not fully implemented yet
+# Not fully implemented yet (need to compile all library functions with -fPIC)
 run-server-co: server
 	LD_PRELOAD=$(SERVER_DIR)/concurrent_open.so ./http_server $(SERVER_FILES) $(PORT) $(QUANTUM)
 

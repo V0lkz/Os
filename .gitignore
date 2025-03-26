@@ -10,6 +10,7 @@ project2/lockperformance
 project2/ioperformance
 project2/http_server
 project2/test
+project2/ioperformance.txt
 # Object files
 project2/tests/server/*.so
 project2/tests/server/*.o
