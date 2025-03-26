@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <fcntl.h>
+#include <cstdlib>
 #include <unistd.h>
 #include <cstring>
 #include "../lib/uthread.h"
@@ -30,12 +31,15 @@ void *thread_io(void *args){
     ThreadArg *params = (ThreadArg *)args;
     IOType mode = params->io_type;
     int num_ops = params->num_ops;
-    char *buffer = new char[params->buffer_size];
     size_t buf_size = params->buffer_size;
+    char *buffer = nullptr;
+    if (posix_memalign((void **)&buffer, 4096, buf_size) != 0) {
+        perror("posix_memalign");
+        return nullptr;
+    }
    
     memset(buffer, tid, params->buffer_size);
     add_workload(params->num_iter);
-   
     for(int i = 0; i < num_ops; ++i){
         off_t offset = (tid * num_ops + i) * buf_size;
         if(mode == SYNC){
@@ -51,7 +55,7 @@ void *thread_io(void *args){
         }
     }
     
-    delete[] buffer;
+    free(buffer);
     return nullptr;
 }
 
@@ -60,9 +64,10 @@ void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size, int nu
 
     int tids[num_threads];
     ThreadArg args = {mode, num_ops, buf_size, num_iter};
-   
-    for (int i = 0; i < num_threads; ++i) {
-        tids[i] = uthread_create(thread_io, &args);
+    std::vector<ThreadArg> args_vec(num_threads);
+    for (int i = 0; i < num_threads; ++i){
+        args_vec[i] = {mode, num_ops, buf_size, num_iter};
+        tids[i] = uthread_create(thread_io, &args_vec[i]);
         if (tids[i] == -1) std::cerr << "uthread_create\n";
     }
 
@@ -84,7 +89,7 @@ void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size, int nu
 int main(){
     uthread_init(10000);
 
-    file_fd = open("test_io_output.bin", O_CREAT | O_RDWR | O_TRUNC, 0644);
+    file_fd = open("test_io_output.bin", O_CREAT | O_RDWR | O_TRUNC | O_DIRECT, 0644);
     if (file_fd == -1) {
         perror("open file");
         return 1;
@@ -138,30 +143,30 @@ int main(){
     run_test(10, 5, sync_type, 1024 * 64, 1000  );
 
     std::cout << "=================================================\n";
-    std::cout << "| Test 3 with 1 iteration in the workload |\n";
+    std::cout << "| Test 3 with 100000 iteration in the workload |\n";
     std::cout << "=================================================\n";
-    run_test(10, 5, async_type, 1024 * 8, 1  );
+    run_test(10, 5, async_type, 1024 * 8, 100000  );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 8, 1  );
+    run_test(10, 5, sync_type, 1024 * 8, 100000  );
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 32, 1  );
+    run_test(10, 5, async_type, 1024 * 32, 100000  );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 32, 1 );
+    run_test(10, 5, sync_type, 1024 * 32, 100000 );
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 64, 11 );
+    run_test(10, 5, async_type, 1024 * 64, 100000 );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 64, 1 );
+    run_test(10, 5, sync_type, 1024 * 64, 100000 );
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 128, 1 );
+    run_test(10, 5, async_type, 1024 * 128, 100000 );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 128, 1 );
+    run_test(10, 5, sync_type, 1024 * 128, 100000 );
     
     uthread_exit(nullptr);
     return 1;  
