@@ -39,7 +39,7 @@ void *thread_io(void *args){
     for(int i = 0; i < num_ops; ++i){
         off_t offset = (tid * num_ops + i) * buf_size;
         if(mode == SYNC){
-            //write to completion
+            //write I/O to completion
             if (pwrite(file_fd, buffer, buf_size, offset) != (ssize_t)buf_size) {
                 perror("write");
             }
@@ -79,13 +79,15 @@ void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size ){
     double dur = std::chrono::duration<double, std::milli>(end - start).count();
 
 
-    std::cout << " completed in " << dur << " ms" << std::endl;
+    std::cout <<"Test IO with " << num_threads << "threads and "<< num_ops 
+              << " IO operations per threads" << "with size" << buf_size << " bytes\n"
+              << "completed in: " << dur << " ms" << std::endl;
+    ftruncate(file_fd, 0);
 }
 
 
 int main(int argc, char *argv[]){
     uthread_init(10000);
-
 
     file_fd = open("test_io_output.bin", O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (file_fd == -1) {
@@ -93,31 +95,20 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-
     IOType async_type = ASYNC;
     IOType sync_type = SYNC;
 
-    std::cout << "Test IO with 10 threads and 2 IO operations per threads:\n";
     std::cout << "Testing async IO performance\n";
     run_test(10, 2, async_type, 8192 );
-    ftruncate(file_fd, 0);
-
 
     std::cout << "Testing sync Performance...\n";
     run_test(10, 2, sync_type, 8192 );
-    ftruncate(file_fd, 0);
 
-
-    std::cout << "Test IO with 20 threads and 1 IO operations per threads:\n";
     std::cout << "Testing async IO performance\n";
     run_test(20, 1, async_type, 8192 * 100);
-    ftruncate(file_fd, 0);
-
 
     std::cout << "Testing sync Performance...\n";
     run_test(20, 1, sync_type, 8192 * 100);
-    ftruncate(file_fd, 0);
-
 
     uthread_exit(nullptr);
     return 1;  
