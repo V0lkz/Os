@@ -111,37 +111,37 @@ int main(int argc, char *argv[]){
     run_test(10, 2, sync_type, 1024 * 8 );
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 128 );
+    run_test(10, 2, async_type, 1024 * 32 );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 128 );
+    run_test(10, 2, sync_type, 1024 * 32);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 256 );
+    run_test(10, 2, async_type, 1024 * 64 );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 256 );
+    run_test(10, 2, sync_type, 1024 * 64 );
 
 
     std::cout << "=================================================\n";
-    std::cout << "| Test 2 with 1000000 iteration in the workload |\n";
+    std::cout << "| Test 2 with 1000 iteration in the workload |\n";
     std::cout << "=================================================\n";
-    run_test(10, 2, async_type, 1024 * 8, 1000000 );
+    run_test(10, 5, async_type, 1024 * 8, 1000  );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 8, 1000000 );
+    run_test(10, 5, sync_type, 1024 * 8, 1000  );
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 128, 1000000 );
+    run_test(10, 5, async_type, 1024 * 32, 1000  );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 128, 1000000 );
+    run_test(10, 5, sync_type, 1024 * 32, 1000  );
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 256, 1000000 );
+    run_test(10, 5, async_type, 1024 * 64, 1000  );
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 256, 1000000 );
+    run_test(10, 5, sync_type, 1024 * 64, 1000  );
 
     uthread_exit(nullptr);
     return 1;  
