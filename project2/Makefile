@@ -21,7 +21,7 @@ QUANTUM = 10000
 # Performance tests
 NTHREADS = 10
 NITER = 100
-NLOOPS = 10000
+NLOOPS = 100000
 NOPS = 100
 
 # HTTP Server
@@ -55,10 +55,10 @@ testioperformance: $(OBJ_SOLN) ./tests/Test_io_Performance.o
 test: $(OBJ_SOLN) ./tests/tests.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
-lockperformance: $(OBJ_SOLN) ./tests/LockPerformance.o
+lockperformance: $(OBJ_SOLN) ./tests/lock_performance.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
-ioperformance: $(OBJ_SOLN) ./tests/IOPerformance.o
+ioperformance: $(OBJ_SOLN) ./tests/io_performance.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
 server:
