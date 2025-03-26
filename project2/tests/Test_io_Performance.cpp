@@ -59,7 +59,6 @@ void *thread_io(void *args){
 void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size, int num_iter = 10000){
     auto start = std::chrono::high_resolution_clock::now();
 
-
     int tids[num_threads];
     ThreadArg args = {mode, num_ops, buf_size, num_iter};
    
@@ -142,6 +141,32 @@ int main(int argc, char *argv[]){
 
     std::cout << "Testing sync Performance...\n";
     run_test(10, 5, sync_type, 1024 * 64, 1000  );
+
+    std::cout << "=================================================\n";
+    std::cout << "| Test 3 with 1 iteration in the workload |\n";
+    std::cout << "=================================================\n";
+    run_test(10, 5, async_type, 1024 * 8, 1  );
+
+    std::cout << "Testing sync Performance...\n";
+    run_test(10, 5, sync_type, 1024 * 8, 1  );
+
+    std::cout << "Testing async IO performance\n";
+    run_test(10, 5, async_type, 1024 * 32, 1  );
+
+    std::cout << "Testing sync Performance...\n";
+    run_test(10, 5, sync_type, 1024 * 32, 1 );
+
+    std::cout << "Testing async IO performance\n";
+    run_test(10, 5, async_type, 1024 * 64, 11 );
+
+    std::cout << "Testing sync Performance...\n";
+    run_test(10, 5, sync_type, 1024 * 64, 1 );
+
+    std::cout << "Testing async IO performance\n";
+    run_test(10, 5, async_type, 1024 * 128, 1 );
+
+    std::cout << "Testing sync Performance...\n";
+    run_test(10, 5, sync_type, 1024 * 128, 1 );
 
     uthread_exit(nullptr);
     return 1;  

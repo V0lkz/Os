@@ -20,3 +20,4 @@ project2/lib/*.o
 project2/.nfs00000000018643ab000000fc
 project2/.nfs00000000018643d60000011a
 project2/.nfs0000000001864332000000d3
+project2/test_io_output.bin
