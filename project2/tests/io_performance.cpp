@@ -128,6 +128,10 @@ void reset_file(const char *message) {
 }
 
 int main(int argc, char *argv[]) {
+    /*
+    command:
+    make run-io NTHREADS=10 NOPS=100 OPSIZE=4096 NITER=1000000 QUANTUM=10000
+    */
     if (argc != 6) {
         // clang-format off
         std::cerr << "Usage: ./ioperformance <num_threads> <num_ops> <op_size> <num_iters> <quantum>\n";
