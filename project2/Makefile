@@ -22,7 +22,9 @@ QUANTUM = 10000
 NTHREADS = 10
 NITER = 100
 NLOOPS = 100000
+
 NOPS = 100
+OPSIZE = 512
 
 # HTTP Server
 SERVER_DIR = ./tests/server
@@ -49,9 +51,6 @@ uthread-sync-demo-from-soln: $(OBJ_SOLN) $(MAIN_OBJ_UTHRAD_SYNC)
 uthread-sync-demo: $(OBJ) $(MAIN_OBJ_UTHRAD_SYNC)
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
-testioperformance: $(OBJ_SOLN) ./tests/Test_io_Performance.o
-	$(CC) $(CFLAGS) -o $@ $^ -lrt
-
 test: $(OBJ_SOLN) ./tests/tests.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
@@ -76,7 +75,7 @@ run-lock: lockperformance
 
 # Run I/O performance test
 run-io: ioperformance
-	./ioperformance $(NTHREADS) $(NOPS) $(QUANTUM)
+	./ioperformance $(NTHREADS) $(NOPS) $(OPSIZE) $(NITER) $(QUANTUM)
 
 # Run HTTP server
 # Ex. make run-server PORT=8001
