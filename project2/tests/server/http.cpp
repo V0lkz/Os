@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "../../lib/async_io.h"
+#include "../../lib/debug.cpp"
 
 #define BUFSIZE 512
 
@@ -42,8 +43,10 @@ int read_http_request(int fd, char *resource_name) {
         char *token = strtok_r(saveptr, " ", &saveptr);
         strcat(resource_name, token);
         // Read in the rest of the http request
-        while ((nbytes = async_read(fd, buf, BUFSIZE, offset)) > 0) {
+        while (nbytes == BUFSIZE) {
+            PRINT("Thread %d reading in rest of http request\n", uthread_self())
             offset += nbytes;
+            nbytes = async_read(fd, buf, BUFSIZE, offset);
         }
     }
     // Check if read errored

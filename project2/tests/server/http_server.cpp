@@ -1,4 +1,6 @@
-// #define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include <errno.h>
 #include <netdb.h>
@@ -202,28 +204,26 @@ int main(int argc, char **argv) {
         // Enqueue the client file descriptor to connection queue
         PRINT("Thread %d ready to enqueue client fd\n", uthread_self());
         if (connection_queue_enqueue(&queue, client_fd) == -1) {
-            close(client_fd);
+            if (close(client_fd) == -1) {
+                perror("close");
+            }
         }
     }
 
     // Clean up connection queue
-    ret_val = 0;
-    if (connection_queue_shutdown(&queue) == -1) {
-        ret_val = 1;
-    }
+    connection_queue_shutdown(&queue);
     // Clean up worker threads
     for (int i = 0; i < N_THREADS; i++) {
         if (uthread_join(threads[i], NULL) != 0) {
             fprintf(stderr, "uthread_join\n");
-            ret_val = 1;
         }
     }
     // Close socket file descriptor
     if (close(sock_fd) == -1) {
         perror("close");
-        ret_val = 1;
     }
+
     // Exit uthread library
     uthread_exit(NULL);
-    return ret_val;
+    return 1;
 }
