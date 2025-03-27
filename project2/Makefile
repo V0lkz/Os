@@ -31,7 +31,7 @@ SERVER_DIR = ./tests/server
 SERVER_FILES = $(SERVER_DIR)/server_files
 PORT = 8000    # Run make PORT=# to change port
 
-.PHONY: all debug run-tests run-lock run-io run-server run-server-co clean
+.PHONY: all debug run-tests run-lock run-io run-server run-server-co io clean
 
 all: uthread-sync-demo-from-soln test lockperformance ioperformance server
 
@@ -81,11 +81,6 @@ run-lock: lockperformance
 run-io: ioperformance
 	./ioperformance $(NTHREADS) $(NOPS) $(OPSIZE) $(NITER) $(QUANTUM)
 
-io:
-	$(MAKE) clean
-	$(MAKE) hcioperformance
-	./hcioperformance
-
 # Run HTTP server
 # Ex. make run-server PORT=8001
 run-server: server
@@ -95,6 +90,12 @@ run-server: server
 # Not fully implemented yet (need to compile all library functions with -fPIC)
 run-server-co: server
 	LD_PRELOAD=$(SERVER_DIR)/concurrent_open.so ./http_server $(SERVER_FILES) $(PORT) $(QUANTUM)
+
+# Runs hard coded performance tests for write up
+io:
+	$(MAKE) clean
+	$(MAKE) hcioperformance
+	./hcioperformance
 
 clean:
 	rm -f ./lib/*.o

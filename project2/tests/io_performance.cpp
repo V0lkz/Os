@@ -102,8 +102,8 @@ double run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int n
     auto end = std::chrono::high_resolution_clock::now();
     double dur = std::chrono::duration<double, std::milli>(end - start).count();
 
-    std::cout << "Test IO with " << num_threads << " threads and " << num_ops
-              << " IO operations per threads" << " with size " << op_size << " bytes\n"
+    std::cout << "Test I/O with " << num_threads << " threads and " << num_ops
+              << " I/O operations per threads" << " with size " << op_size << " bytes\n"
               << "completed in: " << dur << " ms" << std::endl;
 
     return dur;
@@ -144,9 +144,8 @@ int main(int argc, char *argv[]) {
     make run-io NTHREADS=10 NOPS=100 OPSIZE=4096 NITER=1000000 QUANTUM=10000
     */
     if (argc != 6) {
-        // clang-format off
-        std::cerr << "Usage: ./ioperformance <num_threads> <num_ops> <op_size> <num_iters> <quantum>\n";
-        // clang-format on
+        std::cerr
+            << "Usage: ./ioperformance <num_threads> <num_ops> <op_size> <num_iters> <quantum>\n";
         exit(1);
     }
 
@@ -163,6 +162,7 @@ int main(int argc, char *argv[]) {
     // Initialize uthread library
     uthread_init(atoi(argv[5]));
 
+    // Open file to write to
     filedes = open("ioperformance.txt", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
     if (filedes == -1) {
         perror("open");
@@ -197,6 +197,11 @@ int main(int argc, char *argv[]) {
         std::cout << "Performance ratio: async is " << ratio << " times faster\n";
     } else {
         std::cout << "Performance ratio: async is " << ratio << " times slower\n";
+    }
+
+    // Close file
+    if (close(filedes) == -1) {
+        perror("close");
     }
 
     // Exit uthread library

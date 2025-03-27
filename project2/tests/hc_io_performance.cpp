@@ -167,6 +167,7 @@ int main() {
     // Initialize uthread library
     uthread_init(QUANTUM);
 
+    // Open file to write to
     filedes = open("ioperformance.txt", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
     if (filedes == -1) {
         perror("open");
@@ -197,6 +198,7 @@ int main() {
         free(time.test);
     }
 
+    // Close file
     if (close(filedes) == -1) {
         perror("close");
     }
