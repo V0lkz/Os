@@ -11,6 +11,7 @@
 #include "../lib/uthread.h"
 
 #define NUM_ITER 5
+#define QUANTUM 10000
 
 enum IOType {
     SYNC,
@@ -23,6 +24,12 @@ struct ThreadArg {
     int num_iters;
     size_t op_size;
 };
+
+typedef struct wtime {
+    char *test;
+    double async;
+    double sync;
+} wtime_t;
 
 static int filedes;
 static off_t offset;
@@ -104,10 +111,9 @@ double run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int n
     auto end = std::chrono::high_resolution_clock::now();
     double dur = std::chrono::duration<double, std::milli>(end - start).count();
 
-    std::cout << "Test IO with " << num_threads << " threads and " << num_ops
-              << " IO operations per threads" << " with size " << op_size << " bytes\n"
-              << "completed in: " << dur << " ms" << std::endl;
+    std::cout << "completed in: " << dur << " ms" << std::endl;
 
+    free(tids);
     return dur;
 }
 
@@ -120,7 +126,7 @@ void reset_file(void) {
     offset = 0;
 }
 
-void full_test(int num_threads, int num_ops, size_t op_size, int num_iters) {
+wtime_t full_test(int num_threads, int num_ops, size_t op_size, int num_iters) {
     IOType async_type = ASYNC;
     IOType sync_type = SYNC;
 
@@ -128,17 +134,23 @@ void full_test(int num_threads, int num_ops, size_t op_size, int num_iters) {
 
     std::cout << "=============================================================================\n";
     std::cout << "Testing with " << num_iters << " iterations in the workload:\n";
+    std::cout << "I/O with " << num_threads << " threads and " << num_ops
+              << " I/O operations per threads" << " with size " << op_size << " bytes:\n";
 
     for (int i = 0; i < NUM_ITER; i++) {
-        std::cout << "Testing async IO performance...\n";
+        std::cout << "async: ";
         async += run_test(num_threads, num_ops, async_type, op_size, num_iters);
 
-        std::cout << "Testing sync IO performance...\n";
+        std::cout << "sync: ";
         sync += run_test(num_threads, num_ops, sync_type, op_size, num_iters);
     }
 
-    std::cout << "Average async time: " << async / NUM_ITER << std::endl;
-    std::cout << "Average sync time: " << sync / NUM_ITER << std::endl;
+    char *buf = (char *) malloc(sizeof(char) * 128);
+    sprintf(buf, "%d %d %ld %d", num_threads, num_ops, op_size, num_iters);
+    wtime_t time = { .test = buf, .async = async / NUM_ITER, .sync = sync / NUM_ITER };
+
+    std::cout << "Average async time: " << time.async << std::endl;
+    std::cout << "Average sync time: " << time.sync << std::endl;
 
     double ratio = sync / async;
 
@@ -147,11 +159,13 @@ void full_test(int num_threads, int num_ops, size_t op_size, int num_iters) {
     } else {
         std::cout << "Performance ratio: async is " << ratio << " times slower\n";
     }
+
+    return time;
 }
 
 int main() {
     // Initialize uthread library
-    uthread_init(10000);
+    uthread_init(QUANTUM);
 
     filedes = open("ioperformance.txt", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
     if (filedes == -1) {
@@ -159,11 +173,27 @@ int main() {
         exit(1);
     }
 
-    full_test(10, 5, 512, 50000);
-    full_test(10, 5, 4096, 50000);
-    full_test(10, 5, 8192, 50000);
-    full_test(10, 5, 32768, 50000);
-    full_test(10, 5, 65536, 50000);
+    wtime_t times[5];
+
+    times[0] = full_test(10, 5, 512, 50000);
+    times[1] = full_test(10, 5, 4096, 50000);
+    times[2] = full_test(10, 5, 8192, 50000);
+    times[3] = full_test(10, 5, 32768, 50000);
+    times[4] = full_test(10, 5, 65536, 50000);
+
+    std::cout << "=============================================================================\n";
+    std::cout << "Summary:" << std::endl;
+
+    for (wtime_t time : times) {
+        std::cout << "Test: " << time.test << " " << QUANTUM << std::endl;
+        std::cout << " async: " << time.async << std::endl;
+        std::cout << " sync: " << time.sync << std::endl;
+        free(time.test);
+    }
+
+    if (close(filedes) == -1) {
+        perror("close");
+    }
 
     // Exit uthread library
     uthread_exit(nullptr);
