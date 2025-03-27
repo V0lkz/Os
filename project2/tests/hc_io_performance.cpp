@@ -173,13 +173,19 @@ int main() {
         exit(1);
     }
 
-    wtime_t times[5];
+    wtime_t times[10];
 
     times[0] = full_test(10, 5, 512, 50000);
     times[1] = full_test(10, 5, 4096, 50000);
     times[2] = full_test(10, 5, 8192, 50000);
     times[3] = full_test(10, 5, 32768, 50000);
     times[4] = full_test(10, 5, 65536, 50000);
+
+    times[5] = full_test(10, 5, 4096, 10000);
+    times[6] = full_test(10, 5, 4096, 50000);
+    times[7] = full_test(10, 5, 4096, 100000);
+    times[8] = full_test(10, 5, 4096, 500000);
+    times[9] = full_test(10, 5, 4096, 10000000);
 
     std::cout << "=============================================================================\n";
     std::cout << "Summary:" << std::endl;
