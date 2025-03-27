@@ -19,9 +19,10 @@ TESTNUM = -1
 QUANTUM = 10000
 
 # Performance tests
-NTHREADS = 10
+NTHREADS = 5
 NITER = 100
-NLOOPS = 100000
+NLOOPS = 1000
+WORKLOAD = 0
 
 NOPS = 100
 OPSIZE = 512
@@ -75,7 +76,7 @@ run-tests: test
 # Run lock performance test
 # Ex. make run-lock NTHREADS=20 NLOOPS=100000
 run-lock: lockperformance
-	./lockperformance $(NTHREADS) $(NITER) $(QUANTUM) $(NLOOPS)
+	./lockperformance $(NTHREADS) $(NITER) $(NLOOPS) $(WORKLOAD) $(QUANTUM)
 
 # Run I/O performance test
 run-io: ioperformance
