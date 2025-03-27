@@ -61,7 +61,7 @@ lockperformance: $(OBJ_SOLN) ./tests/lock_performance.o
 ioperformance: $(OBJ_SOLN) ./tests/io_performance.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
-hcioperformance: $(OBJ_SOLN) ./tests/hardcoded_io_performance.o
+hcioperformance: $(OBJ_SOLN) ./tests/hc_io_performance.o
 	$(CC) $(CFLAGS) -o $@ $^ -lrt
 
 server:
@@ -81,10 +81,8 @@ run-lock: lockperformance
 run-io: ioperformance
 	./ioperformance $(NTHREADS) $(NOPS) $(OPSIZE) $(NITER) $(QUANTUM)
 
-io:
-	$(MAKE) clean
-	$(MAKE) ioperformance
-	./ioperformance 10 5 65536 50000 10000
+io: hcioperformance
+	./hcioperformance
 
 # Run HTTP server
 # Ex. make run-server PORT=8001
