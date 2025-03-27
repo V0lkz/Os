@@ -19,7 +19,7 @@ TESTNUM = -1
 QUANTUM = 10000
 
 # Performance tests
-NTHREADS = 5
+NTHREADS = 10
 NITER = 100
 NLOOPS = 1000
 WORKLOAD = 0
@@ -102,4 +102,4 @@ clean:
 	rm -f ./lib/*.o
 	rm -f ./tests/*.o
 	rm -f $(SERVER_DIR)/*.so $(SERVER_DIR)/*.o $(SERVER_DIR)/http_server
-	rm -f *.o uthread-sync-demo lockperformance ioperformance ioperformance.txt test http_server
+	rm -f *.o uthread-sync-demo lockperformance hcioperformance ioperformance ioperformance.txt test http_server
