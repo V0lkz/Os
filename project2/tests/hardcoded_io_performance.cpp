@@ -1,173 +1,286 @@
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
 #include <chrono>
+#include <cstring>
 #include <iostream>
 #include <vector>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cstring>
 
-#include "../lib/uthread.h"
 #include "../lib/async_io.h"
+#include "../lib/uthread.h"
 
-enum IOType { SYNC, ASYNC };
-
-int file_fd;
-
-struct ThreadArg{
-    IOType io_type;
-    int num_ops;
-    size_t buffer_size;
-    int num_iter;
+enum IOType {
+    SYNC,
+    ASYNC
 };
 
-void add_workload(int num_iteration){
-    for (int i = 0; i < num_iteration; ++i) {
-        volatile int x = i * i;
+struct ThreadArg {
+    IOType io_type;
+    int num_ops;
+    int num_iters;
+    size_t op_size;
+};
+
+static int filedes;
+static off_t offset;
+
+volatile long x = 0;
+static char *buf = nullptr;
+
+void add_workload(int num_iters) {
+    for (int i = 0; i < num_iters; i++) {
+        x += i * i;
     }
 }
 
-
-void *thread_io(void *args){
-    int tid = uthread_self();
-    ThreadArg *params = (ThreadArg *)args;
+// Thread function
+void *thread_io(void *args) {
+    ThreadArg *params = (ThreadArg *) args;
     IOType mode = params->io_type;
     int num_ops = params->num_ops;
-    char *buffer = new char[params->buffer_size];
-    size_t buf_size = params->buffer_size;
-   
-    memset(buffer, tid, params->buffer_size);
-    add_workload(params->num_iter);
-   
-    for(int i = 0; i < num_ops; ++i){
-        off_t offset = (tid * num_ops + i) * buf_size;
-        if(mode == SYNC){
-            //write I/O to completion
-            if (pwrite(file_fd, buffer, buf_size, offset) != (ssize_t)buf_size) {
-                perror("write");
-            }
-        }else{
-            //allows other threads to run while in io
-            if(async_write(file_fd, buffer, buf_size, offset) == -1) {
-                perror("async_write");
-            };
-        }
+    int num_iters = params->num_iters;
+    int length = params->op_size;
+
+    // Write thread id as a string
+    int tid = uthread_self();
+    memset(buf, (tid % 28) + 96, length);
+
+    if (offset == 0) {
+        offset -= length;
     }
 
+    // Write loop
+    for (int i = 0; i < num_ops; ++i) {
+        // Write I/O to completion
+        if (mode == SYNC) {
+            if (write(filedes, buf, length) != length) {
+                perror("write");
+            }
+            offset += length;
+        }
+        // Allow other threads to run while waiting for I/O
+        else {
+            // Reserve space in file for id
+            offset += length;
+            if (async_write(filedes, buf, length, offset) != length) {
+                perror("async_write");
+            }
+        }
+        add_workload(num_iters);
+    }
     return nullptr;
 }
 
+// Run thread test
+double run_test(int num_threads, int num_ops, IOType mode, size_t op_size, int num_iter) {
+    // Create thread array and args
+    int *tids = (int *) malloc(sizeof(int) * num_threads);
+    ThreadArg args = {
+        .io_type = mode, .num_ops = num_ops, .num_iters = num_iter, .op_size = op_size
+    };
 
-void run_test(int num_threads, int num_ops, IOType mode, size_t buf_size, int num_iter = 10000){
+    // Start timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    int tids[num_threads];
-    ThreadArg args = {mode, num_ops, buf_size, num_iter};
-   
     for (int i = 0; i < num_threads; ++i) {
         tids[i] = uthread_create(thread_io, &args);
-        if (tids[i] == -1) std::cerr << "uthread_create\n";
+        if (tids[i] == -1) {
+            std::cerr << "uthread_create\n";
+            exit(1);
+        }
     }
-
 
     for (int i = 0; i < num_threads; ++i) {
         if (uthread_join(tids[i], nullptr) != 0) {
             std::cerr << "uthread_join\n";
+            exit(1);
         }
     }
 
-
+    // Stop timer
     auto end = std::chrono::high_resolution_clock::now();
     double dur = std::chrono::duration<double, std::milli>(end - start).count();
 
-
-    std::cout <<"Test IO with " << num_threads << " threads and "<< num_ops 
-              << " IO operations per threads" << " with size" << buf_size << " bytes\n"
+    std::cout << "Test IO with " << num_threads << " threads and " << num_ops
+              << " IO operations per threads" << " with size " << op_size << " bytes\n"
               << "completed in: " << dur << " ms" << std::endl;
-    ftruncate(file_fd, 0);
+
+    return dur;
 }
 
+// Update file for next I/O operation
+void reset_file(const char *message) {
+#ifdef DEBUG
+    // Move file offset to the end
+    if (lseek(filedes, 0, SEEK_END) == -1) {
+        std::cerr << "Failed to reset file: ";
+        perror("lseek");
+        exit(1);
+    }
+    // Write message to buffer
+    snprintf(buf, 512, "%s", message);
+    int length = strlen(buf);
+    // Write to file
+    if (write(filedes, buf, length) != length) {
+        std::cerr << "Failed to reset file: ";
+        perror("write");
+        exit(1);
+    }
+    offset += length;
+#else
+    (void) message;
+    if (ftruncate(filedes, 0) == -1) {
+        perror("ftruncate");
+        exit(1);
+    }
+    offset = 0;
+#endif
+}
 
-int main(int argc, char *argv[]){
-    uthread_init(10000);
+int main(int argc, char *argv[]) {
+#if 0
+    /*
+    command:
+    make run-io NTHREADS=10 NOPS=100 OPSIZE=4096 NITER=1000000 QUANTUM=10000
+    */
+    if (argc != 6) {
+        // clang-format off
+        std::cerr << "Usage: ./ioperformance <num_threads> <num_ops> <op_size> <num_iters> <quantum>\n";
+        // clang-format on
+        exit(1);
+    }
 
-    file_fd = open("test_io_output.bin", O_CREAT | O_RDWR | O_TRUNC, 0644);
-    if (file_fd == -1) {
-        perror("open file");
-        return 1;
+    const int num_threads = atoi(argv[1]);
+    const int num_ops = atoi(argv[2]);
+    const size_t op_size = atoi(argv[3]);
+    const int num_iters = atoi(argv[4]);
+    buf = (char *) malloc(sizeof(char) * op_size);
+    if (!buf) {
+        perror("malloc");
+        exit(1);
+    }
+
+    // Initialize uthread library
+    uthread_init(atoi(argv[5]));
+
+    filedes = open("ioperformance.txt", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (filedes == -1) {
+        perror("open");
+        exit(1);
     }
 
     IOType async_type = ASYNC;
     IOType sync_type = SYNC;
 
-    //run_test(number of thread, number of io  operation/thread, size of io, number of iteration in the workload)
+    double async, sync;
+
+    /**
+     * run_test(
+     *  number of threads,
+     *  number of io operation,
+     *  size of io operation,
+     *  number of workload iterations,
+     * )
+     */
+    std::cout << "Testing with " << num_iters << " iterations in the workload:\n";
+
+    reset_file("Test 1: (async)\n");
+    std::cout << "Testing async IO performance\n";
+    async = run_test(num_threads, num_ops, async_type, op_size, num_iters);
+
+    reset_file("\nTest 2: (sync)\n");
+    std::cout << "Testing sync Performance...\n";
+    sync = run_test(num_threads, num_ops, sync_type, op_size, num_iters);
+
+    double ratio = sync / async;
+    if (ratio > 1) {
+        std::cout << "Performance ratio: async is " << ratio << " times faster\n";
+    } else {
+        std::cout << "Performance ratio: async is " << ratio << " times slower\n";
+    }
+
+    // Exit uthread library
+    uthread_exit(nullptr);
+    return 1;
+#endif
+    filedes = open("hcioperformance.txt", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (filedes == -1) {
+        perror("open file");
+        exit(1);
+    }
+
+    IOType async_type = ASYNC;
+    IOType sync_type = SYNC;
+
     std::cout << "===============================================\n";
     std::cout << "| Test 1 with 10000 iteration in the workload |\n";
     std::cout << "===============================================\n";
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 8);
+    run_test(10, 2, async_type, 1024 * 8, 10000);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 8 );
+    run_test(10, 2, sync_type, 1024 * 8, 10000);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 32 );
+    run_test(10, 2, async_type, 1024 * 32, 10000);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 32);
+    run_test(10, 2, sync_type, 1024 * 32, 10000);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 2, async_type, 1024 * 64 );
+    run_test(10, 2, async_type, 1024 * 64, 10000);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 2, sync_type, 1024 * 64 );
-
+    run_test(10, 2, sync_type, 1024 * 64, 10000);
 
     std::cout << "=================================================\n";
     std::cout << "| Test 2 with 1000 iteration in the workload |\n";
     std::cout << "=================================================\n";
-    run_test(10, 5, async_type, 1024 * 8, 1000  );
+    run_test(10, 5, async_type, 1024 * 8, 1000);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 8, 1000  );
+    run_test(10, 5, sync_type, 1024 * 8, 1000);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 32, 1000  );
+    run_test(10, 5, async_type, 1024 * 32, 1000);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 32, 1000  );
+    run_test(10, 5, sync_type, 1024 * 32, 1000);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 64, 1000  );
+    run_test(10, 5, async_type, 1024 * 64, 1000);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 64, 1000  );
+    run_test(10, 5, sync_type, 1024 * 64, 1000);
 
     std::cout << "=================================================\n";
     std::cout << "| Test 3 with 1 iteration in the workload |\n";
     std::cout << "=================================================\n";
-    run_test(10, 5, async_type, 1024 * 8, 1  );
+    run_test(10, 5, async_type, 1024 * 8, 1);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 8, 1  );
+    run_test(10, 5, sync_type, 1024 * 8, 1);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 32, 1  );
+    run_test(10, 5, async_type, 1024 * 32, 1);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 32, 1 );
+    run_test(10, 5, sync_type, 1024 * 32, 1);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 64, 11 );
+    run_test(10, 5, async_type, 1024 * 64, 1);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 64, 1 );
+    run_test(10, 5, sync_type, 1024 * 64, 1);
 
     std::cout << "Testing async IO performance\n";
-    run_test(10, 5, async_type, 1024 * 128, 1 );
+    run_test(10, 5, async_type, 1024 * 128, 1);
 
     std::cout << "Testing sync Performance...\n";
-    run_test(10, 5, sync_type, 1024 * 128, 1 );
+    run_test(10, 5, sync_type, 1024 * 128, 1);
 
     uthread_exit(nullptr);
-    return 1;  
+    return 1;
 }

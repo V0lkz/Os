@@ -25,7 +25,7 @@ struct ThreadArg {
 static int filedes;
 static off_t offset;
 
-volatile long x = 0;
+volatile uint64_t x = 0;
 static char *buf = nullptr;
 
 void add_workload(int num_iters) {
