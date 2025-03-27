@@ -81,7 +81,9 @@ run-lock: lockperformance
 run-io: ioperformance
 	./ioperformance $(NTHREADS) $(NOPS) $(OPSIZE) $(NITER) $(QUANTUM)
 
-io: hcioperformance
+io:
+	$(MAKE) clean
+	$(MAKE) hcioperformance
 	./hcioperformance
 
 # Run HTTP server
