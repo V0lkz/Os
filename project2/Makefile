@@ -81,6 +81,11 @@ run-lock: lockperformance
 run-io: ioperformance
 	./ioperformance $(NTHREADS) $(NOPS) $(OPSIZE) $(NITER) $(QUANTUM)
 
+io:
+	$(MAKE) clean
+	$(MAKE) ioperformance
+	./ioperformance 10 5 65536 50000 10000
+
 # Run HTTP server
 # Ex. make run-server PORT=8001
 run-server: server
