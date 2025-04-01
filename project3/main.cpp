@@ -13,15 +13,17 @@ how to use the page table and disk interfaces.
 #include <cassert>
 #include <iostream>
 #include <string.h>
+#include <queue>
 
 using namespace std;
+std::queue<int> free_frames;
 
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
 
 // Number of physical frames
 int nframes;
-
+int page_faults = 0;
 // Pointer to disk for access from handlers
 struct disk *disk = nullptr;
 
@@ -37,7 +39,8 @@ void page_fault_handler_example(struct page_table *pt, int page)
 
     // Map the page to the same frame number and set to read/write
     // TODO - Disable exit and enable page table update for example
-    exit(1);
+    //exit(1);
+    page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
     // page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
 
     // Print the page table contents
@@ -47,6 +50,39 @@ void page_fault_handler_example(struct page_table *pt, int page)
 }
 
 // TODO - Handler(s) and page eviction algorithms
+void page_fault_handler(struct page_table *pt, int page){
+    cout << "Before ----------------------------" << endl;
+    page_table_print(pt);
+
+    int frame, bits;
+
+    page_table_get_entry(pt, page, &frame, &bits);
+    // if the 
+    if(bits == 0){
+        page_faults++;
+
+        int use_frame;
+        if(!free_frames.empty()){
+            use_frame = free_frames.front();
+            free_frames.pop();
+        }else{
+            //Todo: replace policy
+            cerr << "eviction not implemented";
+            exit(1);
+        }
+        char *phys_mem = page_table_get_physmem(pt);
+        disk_read(disk, page, phys_mem + use_frame * PAGE_SIZE);
+
+        page_table_set_entry(pt, page, use_frame, PROT_READ);
+    }
+    //Page fault if the application attempts to write to read-only file
+    else if((bits & PROT_READ) && !(bits & PROT_WRITE)){
+        page_table_set_entry(pt,page,frame,PROT_READ | PROT_WRITE);
+    }
+
+    cout << "After ----------------------------" << endl;
+    page_table_print(pt);
+}
 
 int main(int argc, char *argv[])
 {
@@ -100,6 +136,10 @@ int main(int argc, char *argv[])
 
     // TODO - Any init needed
 
+    for (int i = 0; i < nframes; ++i) {
+        free_frames.push(i);
+    }
+    
     // Create a virtual disk
     disk = disk_open("myvirtualdisk", npages);
     if (!disk)
@@ -109,7 +149,7 @@ int main(int argc, char *argv[])
     }
 
     // Create a page table
-    struct page_table *pt = page_table_create(npages, nframes, page_fault_handler_example /* TODO - Replace with your handler(s)*/);
+    struct page_table *pt = page_table_create(npages, nframes, page_fault_handler /* TODO - Replace with your handler(s)*/);
     if (!pt)
     {
         cerr << "ERROR: Couldn't create page table: " << strerror(errno) << endl;
