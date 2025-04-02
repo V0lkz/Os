@@ -20,6 +20,7 @@ how to use the page table and disk interfaces.
 
 using namespace std;
 std::queue<int> free_frames;
+std::queue<int> fifo_queue;
 std::unordered_map<int, int> frame_page;
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
@@ -82,7 +83,9 @@ int policy_readonly_rand(struct page_table *pt){
 }
 
 int polic_FIFO(struct page_table *pt){
-    return 1;
+    int evicted_frame = fifo_queue.front();
+    fifo_queue.pop();
+    return evicted_frame;
 }
 
 void page_fault_handler(struct page_table *pt, int page){
@@ -121,6 +124,10 @@ void page_fault_handler(struct page_table *pt, int page){
         disk_read(disk, page, phys_mem + use_frame * PAGE_SIZE);
         page_table_set_entry(pt, page, use_frame, PROT_READ);
         frame_page[use_frame] = page;
+
+        if(policy == polic_FIFO){
+            fifo.queue.push(use_frame);
+        }
     }
     //Page fault if the application attempts to write to read-only file
     else if((bits & PROT_READ) && !(bits & PROT_WRITE)){
