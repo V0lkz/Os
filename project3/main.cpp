@@ -73,11 +73,16 @@ int policy_readonly_rand(struct page_table *pt){
             read_only.push_back(frame);
         }
     }
+
     if(!read_only.empty()){
         return read_only[rand() % read_only.size()];
     }else{
         return dirty[rand() % dirty.size()];
     }
+}
+
+int polic_FIFO(struct page_table *pt){
+
 }
 
 void page_fault_handler(struct page_table *pt, int page){
@@ -87,23 +92,27 @@ void page_fault_handler(struct page_table *pt, int page){
     int frame, bits;
     char *phys_mem = page_table_get_physmem(pt);
     page_table_get_entry(pt, page, &frame, &bits);
-    // if the 
+    // if the page is being access for the first time
     if(bits == 0){
         page_faults++;
 
         int use_frame;
-        if(!free_frames.empty()){
+
+        if(!free_frames.empty()){               //checks for available frame
             use_frame = free_frames.front();
             free_frames.pop();
         }else{
-            //Todo: replace policy: rand, FIFO, ...
             int evicted_page = frame_page[policy_readonly_rand(pt)];
             int evicted_frame, evicted_bits;
 
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
+
+            //if the evicted is dirt write to disk
             if(evicted_bits & PROT_WRITE){
                 disk_write(disk, evicted_page, phys_mem + evicted_frame * PAGE_SIZE);
             }
+            
+            //reset the mapping of the evicted page
             page_table_set_entry(pt, evicted_page, 0, 0);
             frame_page.erase(evicted_frame);
             use_frame = evicted_frame;
