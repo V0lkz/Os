@@ -3,6 +3,7 @@
 .devcontainer
 .vscode
 replit.nix
+
 # Project 2
 project2/tests/server/http_server
 project2/uthread-sync-demo
@@ -23,10 +24,11 @@ project2/.nfs00000000018643d60000011a
 project2/.nfs0000000001864332000000d3
 testing_setup.txt
 
-#Project 2
-
-
-#Other files
+# Project 3
+project3/virtmem
+# Object files
+project3/*.o
+# Other files
 project3/.nfs*
 
 
