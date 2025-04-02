@@ -45,7 +45,7 @@ void page_fault_handler_example(struct page_table *pt, int page)
     // TODO - Disable exit and enable page table update for example
     //exit(1);
     page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
-    // page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
+
 
     // Print the page table contents
     cout << "After ----------------------------" << endl;
@@ -59,7 +59,25 @@ int policy_rand(struct page_table *pt){
 }
 
 int policy_readonly_rand(struct page_table *pt){
-    
+    std::vector<int> read_only;
+    std::vector<int> dirty;
+
+    for(int frame = 0; frame < nframes; frame++){
+        int page = frame_page[frame];
+        int dummy_frame, bits;
+        page_table_get_entry(pt, page,&dummy_frame, &bits);
+
+        if(bits & PROT_WRITE){
+            dirty.push_back(frame);
+        }else{
+            read_only.push_back(frame);
+        }
+    }
+    if(!read_only.empty()){
+        return read_only[rand() % read_only.size()];
+    }else{
+        return dirty[rand() % dirty.size()];
+    }
 }
 
 void page_fault_handler(struct page_table *pt, int page){
@@ -79,7 +97,7 @@ void page_fault_handler(struct page_table *pt, int page){
             free_frames.pop();
         }else{
             //Todo: replace policy: rand, FIFO, ...
-            int evicted_page = frame_page[policy_rand(pt)];
+            int evicted_page = frame_page[policy_readonly_rand(pt)];
             int evicted_frame, evicted_bits;
 
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
