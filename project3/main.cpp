@@ -23,7 +23,7 @@ std::queue<int> free_frames;
 std::unordered_map<int, int> frame_page;
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
-
+int (*policy)(struct page_table *) = nullptr;
 // Number of physical frames
 int npages;
 int nframes;
@@ -82,7 +82,7 @@ int policy_readonly_rand(struct page_table *pt){
 }
 
 int polic_FIFO(struct page_table *pt){
-
+    return 1;
 }
 
 void page_fault_handler(struct page_table *pt, int page){
@@ -102,7 +102,7 @@ void page_fault_handler(struct page_table *pt, int page){
             use_frame = free_frames.front();
             free_frames.pop();
         }else{
-            int evicted_page = frame_page[policy_readonly_rand(pt)];
+            int evicted_page = frame_page[policy(pt)];
             int evicted_frame, evicted_bits;
 
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
@@ -149,10 +149,13 @@ int main(int argc, char *argv[])
     const char *program_name = argv[4];
 
     // Validate the algorithm specified
-    if ((strcmp(algorithm, "rand") != 0) &&
-        (strcmp(algorithm, "fifo") != 0) &&
-        (strcmp(algorithm, "custom") != 0))
-    {
+    if(strcmp(algorithm, "rand") == 0){
+        policy = policy_rand;
+    }else if(strcmp(algorithm, "fifio") == 0){
+        policy = polic_FIFO;
+    }else if(strcmp(algorithm, "readonly_rand") == 0){
+        policy = policy_readonly_rand;
+    }else{
         cerr << "ERROR: Unknown algorithm: " << algorithm << endl;
         exit(1);
     }
