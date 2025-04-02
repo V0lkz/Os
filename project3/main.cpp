@@ -14,14 +14,18 @@ how to use the page table and disk interfaces.
 #include <iostream>
 #include <string.h>
 #include <queue>
+#include <vector>
+#include <cstdlib>
+#include <unordered_map>
 
 using namespace std;
 std::queue<int> free_frames;
-
+std::unordered_map<int, int> frame_page;
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
 
 // Number of physical frames
+int npages;
 int nframes;
 int page_faults = 0;
 // Pointer to disk for access from handlers
@@ -50,12 +54,20 @@ void page_fault_handler_example(struct page_table *pt, int page)
 }
 
 // TODO - Handler(s) and page eviction algorithms
+int policy_rand(struct page_table *pt){
+    return rand() % nframes;    
+}
+
+int policy_readonly_rand(struct page_table *pt){
+    
+}
+
 void page_fault_handler(struct page_table *pt, int page){
     cout << "Before ----------------------------" << endl;
     page_table_print(pt);
 
     int frame, bits;
-
+    char *phys_mem = page_table_get_physmem(pt);
     page_table_get_entry(pt, page, &frame, &bits);
     // if the 
     if(bits == 0){
@@ -66,14 +78,22 @@ void page_fault_handler(struct page_table *pt, int page){
             use_frame = free_frames.front();
             free_frames.pop();
         }else{
-            //Todo: replace policy
-            cerr << "eviction not implemented";
-            exit(1);
+            //Todo: replace policy: rand, FIFO, ...
+            int evicted_page = frame_page[policy_rand(pt)];
+            int evicted_frame, evicted_bits;
+
+            page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
+            if(evicted_bits & PROT_WRITE){
+                disk_write(disk, evicted_page, phys_mem + evicted_frame * PAGE_SIZE);
+            }
+            page_table_set_entry(pt, evicted_page, 0, 0);
+            frame_page.erase(evicted_frame);
+            use_frame = evicted_frame;
         }
         char *phys_mem = page_table_get_physmem(pt);
         disk_read(disk, page, phys_mem + use_frame * PAGE_SIZE);
-
         page_table_set_entry(pt, page, use_frame, PROT_READ);
+        frame_page[use_frame] = page;
     }
     //Page fault if the application attempts to write to read-only file
     else if((bits & PROT_READ) && !(bits & PROT_WRITE)){
@@ -83,6 +103,8 @@ void page_fault_handler(struct page_table *pt, int page){
     cout << "After ----------------------------" << endl;
     page_table_print(pt);
 }
+
+
 
 int main(int argc, char *argv[])
 {
@@ -94,7 +116,7 @@ int main(int argc, char *argv[])
     }
 
     // Parse command line arguments
-    int npages = atoi(argv[1]);
+    npages = atoi(argv[1]);
     nframes = atoi(argv[2]);
     const char *algorithm = argv[3];
     const char *program_name = argv[4];
