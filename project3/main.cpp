@@ -23,7 +23,8 @@ using namespace std;
 
 std::queue<int> free_frames;
 std::queue<int> fifo_queue;
-// std::unordered_map<int, int> frame_page; already in page table
+// Map from PM frame to VM page
+int *frame_mapping;
 
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
@@ -61,25 +62,29 @@ int policy_rand(struct page_table *pt) {
 }
 
 int policy_readonly_rand(struct page_table *pt) {
-    std::vector<int> read_only;
-    std::vector<int> dirty;
+    std::vector<int> rdonly_frames;
+    std::vector<int> dirty_frames;
 
+    // Iteratre through physical memory frames
+    int nframes = page_table_get_nframes(pt);
     for (int frame = 0; frame < nframes; frame++) {
-        int page = frame_page[frame];
+        // Get page table entry
         int dummy_frame, bits;
+        int page = frame_mapping[frame];
         page_table_get_entry(pt, page, &dummy_frame, &bits);
-
+        // Check page protections
         if (bits & PROT_WRITE) {
-            dirty.push_back(frame);
+            dirty_frames.push_back(frame);
         } else {
-            read_only.push_back(frame);
+            rdonly_frames.push_back(frame);
         }
     }
 
-    if (!read_only.empty()) {
-        return read_only[rand() % read_only.size()];
+    // Check if there are read-only frames
+    if (!rdonly_frames.empty()) {
+        return rdonly_frames[rand() % rdonly_frames.size()];
     } else {
-        return dirty[rand() % dirty.size()];
+        return dirty_frames[rand() % dirty_frames.size()];
     }
 }
 
@@ -96,6 +101,7 @@ void page_fault_handler(struct page_table *pt, int page) {
     // Get the corresponding page table entry
     int frame, bits;
     page_table_get_entry(pt, page, &frame, &bits);
+
     // Check if page is being accessed for the first time
     if (bits == 0) {
         char *phys_mem = page_table_get_physmem(pt);
@@ -109,15 +115,14 @@ void page_fault_handler(struct page_table *pt, int page) {
         else {
             // Get evicted page table entry
             int evicted_frame, evicted_bits;
-            int evicted_page = policy(pt);
+            int evicted_page = frame_mapping[policy(pt)];
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
-
             // Write frame to disk if the frame is dirty
             if (evicted_bits & PROT_WRITE) {
+                // need corresponding page for write
                 disk_write(disk, evicted_page, phys_mem + evicted_frame * PAGE_SIZE);
             }
-
-            // reset the mapping of the evicted page
+            // Set the new frame to the evicted frame
             page_table_set_entry(pt, evicted_page, 0, 0);
             new_frame = evicted_frame;
         }
@@ -131,7 +136,7 @@ void page_fault_handler(struct page_table *pt, int page) {
         // Update counter
         page_faults++;
     }
-    // Page fault if the application attempts to write to read-only file
+    // Check if read-only page was written to
     else if ((bits & PROT_READ) && !(bits & PROT_WRITE)) {
         page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
     }
@@ -186,6 +191,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < nframes; ++i) {
         free_frames.push(i);
     }
+    frame_mapping = new int[nframes];
 
     // Create a virtual disk
     disk = disk_open("myvirtualdisk", npages);
