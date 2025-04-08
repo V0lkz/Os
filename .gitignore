@@ -26,6 +26,7 @@ testing_setup.txt
 # Project 3
 project3/virtmem
 project3/myvirtualdisk
+project3/out.txt
 # Object files
 project3/*.o
 # Other files
