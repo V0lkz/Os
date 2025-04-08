@@ -25,6 +25,7 @@ project2/.nfs0000000001864332000000d3
 testing_setup.txt
 # Project 3
 project3/virtmem
+project3/myvirtualdisk
 # Object files
 project3/*.o
 # Other files
