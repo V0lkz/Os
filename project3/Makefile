@@ -1,5 +1,7 @@
 CC = g++
-CC_FLAGS = -Wall -g -c
+CC_FLAGS = -Wall -Wextra -pedantic -g -c
+
+.PHONY = run clean
 
 virtmem: main.o page_table.o disk.o program.o
 	$(CC) main.o page_table.o disk.o program.o -o virtmem
@@ -16,6 +18,9 @@ disk.o: disk.cpp
 program.o: program.cpp
 	$(CC) $(CC_FLAGS) program.cpp -o program.o
 
+run: virtmem
+	clear
+	./virtmem 7 5 rand scan
 
 clean:
 	rm -f *.o virtmem myvirtualdisk

@@ -20,16 +20,20 @@ how to use the page table and disk interfaces.
 #include "program.h"
 
 using namespace std;
+
 std::queue<int> free_frames;
 std::queue<int> fifo_queue;
-std::unordered_map<int, int> frame_page;
+// std::unordered_map<int, int> frame_page; already in page table
+
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
 int (*policy)(struct page_table *) = nullptr;
+
 // Number of physical frames
 int npages;
 int nframes;
 int page_faults = 0;
+
 // Pointer to disk for access from handlers
 struct disk *disk = nullptr;
 
@@ -43,8 +47,6 @@ void page_fault_handler_example(struct page_table *pt, int page) {
     cout << "----------------------------------" << endl;
 
     // Map the page to the same frame number and set to read/write
-    // TODO - Disable exit and enable page table update for example
-    // exit(1);
     page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
 
     // Print the page table contents
@@ -55,7 +57,7 @@ void page_fault_handler_example(struct page_table *pt, int page) {
 
 // TODO - Handler(s) and page eviction algorithms
 int policy_rand(struct page_table *pt) {
-    return rand() % nframes;
+    return rand() % pt->nframes;
 }
 
 int policy_readonly_rand(struct page_table *pt) {
@@ -81,7 +83,7 @@ int policy_readonly_rand(struct page_table *pt) {
     }
 }
 
-int polic_FIFO(struct page_table *pt) {
+int policy_FIFO(struct page_table *pt) {
     int evicted_frame = fifo_queue.front();
     fifo_queue.pop();
     return evicted_frame;
@@ -91,42 +93,43 @@ void page_fault_handler(struct page_table *pt, int page) {
     cout << "Before ----------------------------" << endl;
     page_table_print(pt);
 
+    // Get the corresponding page table entry
     int frame, bits;
-    char *phys_mem = page_table_get_physmem(pt);
     page_table_get_entry(pt, page, &frame, &bits);
-    // if the page is being access for the first time
+    // Check if page is being accessed for the first time
     if (bits == 0) {
-        page_faults++;
-
-        int use_frame;
-
-        if (!free_frames.empty()) {    // checks for available frame
-            use_frame = free_frames.front();
+        char *phys_mem = page_table_get_physmem(pt);
+        int new_frame;
+        // Check if there are frame available in queue
+        if (!free_frames.empty()) {
+            new_frame = free_frames.front();
             free_frames.pop();
-        } else {
-            int evicted_page = frame_page[policy(pt)];
+        }
+        // Otherwise use frame eviction policy
+        else {
+            // Get evicted page table entry
             int evicted_frame, evicted_bits;
-
+            int evicted_page = policy(pt);
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
 
-            // if the evicted is dirt write to disk
+            // Write frame to disk if the frame is dirty
             if (evicted_bits & PROT_WRITE) {
                 disk_write(disk, evicted_page, phys_mem + evicted_frame * PAGE_SIZE);
             }
 
             // reset the mapping of the evicted page
             page_table_set_entry(pt, evicted_page, 0, 0);
-            frame_page.erase(evicted_frame);
-            use_frame = evicted_frame;
+            new_frame = evicted_frame;
         }
-        char *phys_mem = page_table_get_physmem(pt);
-        disk_read(disk, page, phys_mem + use_frame * PAGE_SIZE);
-        page_table_set_entry(pt, page, use_frame, PROT_READ);
-        frame_page[use_frame] = page;
-
-        if (policy == polic_FIFO) {
-            fifo_queue.push(use_frame);
+        // Read frame from disk into physical memory and update page table
+        disk_read(disk, page, phys_mem + new_frame * PAGE_SIZE);
+        page_table_set_entry(pt, page, new_frame, PROT_READ);
+        // Update policy variables
+        if (policy == policy_FIFO) {
+            fifo_queue.push(new_frame);
         }
+        // Update counter
+        page_faults++;
     }
     // Page fault if the application attempts to write to read-only file
     else if ((bits & PROT_READ) && !(bits & PROT_WRITE)) {
@@ -153,8 +156,8 @@ int main(int argc, char *argv[]) {
     // Validate the algorithm specified
     if (strcmp(algorithm, "rand") == 0) {
         policy = policy_rand;
-    } else if (strcmp(algorithm, "fifio") == 0) {
-        policy = polic_FIFO;
+    } else if (strcmp(algorithm, "fifo") == 0) {
+        policy = policy_FIFO;
     } else if (strcmp(algorithm, "readonly_rand") == 0) {
         policy = policy_readonly_rand;
     } else {
@@ -169,7 +172,6 @@ int main(int argc, char *argv[]) {
             cerr << "ERROR: nFrames >= 2 for sort program" << endl;
             exit(1);
         }
-
         program = sort_program;
     } else if (!strcmp(program_name, "scan")) {
         program = scan_program;
@@ -181,7 +183,6 @@ int main(int argc, char *argv[]) {
     }
 
     // TODO - Any init needed
-
     for (int i = 0; i < nframes; ++i) {
         free_frames.push(i);
     }
@@ -194,8 +195,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Create a page table
-    struct page_table *pt = page_table_create(
-        npages, nframes, page_fault_handler /* TODO - Replace with your handler(s)*/);
+    struct page_table *pt = page_table_create(npages, nframes, page_fault_handler);
     if (!pt) {
         cerr << "ERROR: Couldn't create page table: " << strerror(errno) << endl;
         return 1;
