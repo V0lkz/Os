@@ -19,9 +19,25 @@ how to use the page table and disk interfaces.
 #include "page_table.h"
 #include "program.h"
 
+#ifdef DEBUG    // DEBUG ON
+// Print to stderr
+#define PRINT(fmt, ...) fprintf(stderr, fmt, __VA_ARGS__)
+// Print page table
+inline void PT_PRINT(const char *str, struct page_table *pt) {
+    std::cout << str << " ----------------------------" << std::endl;
+    page_table_print(pt);
+    std::cout << "----------------------------------" << std::endl;
+}
+#else    // DEBUG OFF
+#define PRINT(...)
+#define PT_PRINT(...)
+#endif
+
 using namespace std;
 
+// Contains free frames
 std::queue<int> free_frames;
+// Contains allocated frames
 std::queue<int> fifo_queue;
 // Map from PM frame to VM page
 int *frame_mapping;
@@ -30,9 +46,11 @@ int *frame_mapping;
 typedef void (*program_f)(char *data, int length);
 int (*policy)(struct page_table *) = nullptr;
 
-// Number of physical frames
+// Number of virtual pages
 int npages;
+// Number of physical frames
 int nframes;
+// Page fault counter
 int page_faults = 0;
 
 // Pointer to disk for access from handlers
@@ -56,9 +74,9 @@ void page_fault_handler_example(struct page_table *pt, int page) {
     cout << "----------------------------------" << endl;
 }
 
-// TODO - Handler(s) and page eviction algorithms
+// Page eviction policies
 int policy_rand(struct page_table *pt) {
-    return rand() % pt->nframes;
+    return rand() % nframes;
 }
 
 int policy_readonly_rand(struct page_table *pt) {
@@ -66,7 +84,6 @@ int policy_readonly_rand(struct page_table *pt) {
     std::vector<int> dirty_frames;
 
     // Iteratre through physical memory frames
-    int nframes = page_table_get_nframes(pt);
     for (int frame = 0; frame < nframes; frame++) {
         // Get page table entry
         int dummy_frame, bits;
@@ -94,9 +111,9 @@ int policy_FIFO(struct page_table *pt) {
     return evicted_frame;
 }
 
+// Page fautl handler
 void page_fault_handler(struct page_table *pt, int page) {
-    cout << "Before ----------------------------" << endl;
-    page_table_print(pt);
+    PT_PRINT("Before", pt);
 
     // Get the corresponding page table entry
     int frame, bits;
@@ -117,6 +134,7 @@ void page_fault_handler(struct page_table *pt, int page) {
             int evicted_frame, evicted_bits;
             int evicted_page = frame_mapping[policy(pt)];
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
+            PRINT("Policy: Evicted page %d/frame %d\n", evicted_page, evicted_frame);
             // Write frame to disk if the frame is dirty
             if (evicted_bits & PROT_WRITE) {
                 // need corresponding page for write
@@ -130,19 +148,21 @@ void page_fault_handler(struct page_table *pt, int page) {
         disk_read(disk, page, phys_mem + new_frame * PAGE_SIZE);
         page_table_set_entry(pt, page, new_frame, PROT_READ);
         // Update policy variables
+        frame_mapping[new_frame] = page;
         if (policy == policy_FIFO) {
             fifo_queue.push(new_frame);
         }
         // Update counter
         page_faults++;
+        PRINT("Handler: Added page %d/frame %d into page table\n", page, new_frame);
     }
     // Check if read-only page was written to
     else if ((bits & PROT_READ) && !(bits & PROT_WRITE)) {
         page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+        PRINT("Handler: PROT_WRITE added to page %d/frame %d\n", page, frame);
     }
 
-    cout << "After ----------------------------" << endl;
-    page_table_print(pt);
+    PT_PRINT("After", pt);
 }
 
 int main(int argc, char *argv[]) {
