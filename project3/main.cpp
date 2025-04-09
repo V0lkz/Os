@@ -37,12 +37,18 @@ using namespace std;
 
 // Contains free frames
 std::queue<int> free_frames;
-// Contains allocated frames
-std::queue<int> fifo_queue;
 // Map from PM frame to VM page
 int *frame_mapping;
 
+// Clock Policy
+// Inital clock hand position
+int clock_hand = 0;
+// Use bits for each frame
 int *use_bits;
+
+// FIFO Policy
+// Contains allocated frames
+std::queue<int> fifo_queue;
 
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
@@ -54,9 +60,6 @@ int npages;
 int nframes;
 // Page fault counter
 int page_faults = 0;
-// inital clock hand position
-int clock_hand = 0;
-
 
 // Pointer to disk for access from handlers
 struct disk *disk = nullptr;
@@ -116,7 +119,30 @@ int policy_FIFO(struct page_table *pt) {
     return evicted_frame;
 }
 
-// Page fautl handler
+int policy_clock(struct page_table *pt) {
+    // Search for a frame with unset use bit
+    while (true) {
+        // Get frame and page pointed by clock hand
+        int frame = clock_hand;
+        int page = frame_mapping[frame];
+
+        // Get corresponding page table entry
+        int dummy_frame, bits;
+        page_table_get_entry(pt, page, &dummy_frame, &bits);
+
+        // Check if use bit is unset
+        if (use_bits[frame] == 0) {
+            return frame;
+        }
+        // Otherwise clear the use bit
+        else {
+            use_bits[frame] = 0;
+            clock_hand = (clock_hand + 1) % nframes;
+        }
+    }
+}
+
+// Page fault handler
 void page_fault_handler(struct page_table *pt, int page) {
     PT_PRINT("Before", pt);
 
@@ -171,26 +197,6 @@ void page_fault_handler(struct page_table *pt, int page) {
     PT_PRINT("After", pt);
 }
 
-int policy_clock(struct page_table *pt){
-    //Search for a frame with unset use bit
-    while(true){
-        int frame = clock_hand;
-        int page = frame_mapping[clock_hand];
-
-        int dummy_frame, bits;
-        page_table_get_entry(pt, page, &dummy_frame, &bits);
-
-        if(use_bits[frame] == 0) {
-            return frame;
-        }
-        //Clear the use bit of the frame currently pointed by the clock hand
-        else {
-            use_bits[frame] = 0;
-            clock_hand = (clock_hand + 1) % nframes;
-        }
-    }
-}
-
 int main(int argc, char *argv[]) {
     // Check argument count
     if (argc != 5) {
@@ -209,7 +215,7 @@ int main(int argc, char *argv[]) {
         policy = policy_rand;
     } else if (strcmp(algorithm, "fifo") == 0) {
         policy = policy_FIFO;
-    } else if (strcmp(algorithm, "readonly_rand") == 0) {
+    } else if (strcmp(algorithm, "rdonly") == 0) {
         policy = policy_readonly_rand;
     } else if (strcmp(algorithm, "clock") == 0) {
         policy = policy_clock;
@@ -235,13 +241,14 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // TODO - Any init needed
+    // Initialize free frames queue
     for (int i = 0; i < nframes; ++i) {
         free_frames.push(i);
     }
+    // Initialize frame mapping and use bits
     frame_mapping = new int[nframes];
-
     use_bits = new int[nframes];
+
     // Create a virtual disk
     disk = disk_open("myvirtualdisk", npages);
     if (!disk) {
