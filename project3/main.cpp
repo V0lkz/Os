@@ -138,6 +138,7 @@ int policy_rd_rand(struct page_table *pt) {
     // Otherwise find all pages that are read-only
     else {
         std::vector<int> rdonly;
+        // Iterate through all used pages
         for (int i = 0; i < nframes; i++) {
             int frame, bits;
             page_table_get_entry(pt, used_pages[i], &frame, &bits);
@@ -146,6 +147,7 @@ int policy_rd_rand(struct page_table *pt) {
                 rdonly.push_back(i);
             }
         }
+        // Choose a random read-only page
         int index = rdonly[rand() % rdonly.size()];
         evicted_page = used_pages[index];
         used_pages.erase(used_pages.begin() + index);
@@ -160,10 +162,11 @@ int policy_wr_rand(struct page_table *pt) {
         int index = rand() % dirty_pages.size();
         int evicted_page = dirty_pages[index];
         dirty_pages.erase(dirty_pages.begin() + index);
+        remove_page(used_pages, evicted_page);
         return evicted_page;
-    } else {
-        return policy_rand(pt);
     }
+    // Otherwise choose a random page
+    return policy_rand(pt);
 }
 
 // Newest page that was written to
