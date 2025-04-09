@@ -34,8 +34,6 @@ inline void PT_PRINT(const char *str, struct page_table *pt) {
 #define PT_PRINT(...)
 #endif
 
-using namespace std;
-
 // Contains free frames
 std::queue<int> free_frames;
 // Contains allocated pages in fifo order
@@ -69,20 +67,20 @@ struct disk *disk = nullptr;
 
 // Simple handler for pages == frames
 void page_fault_handler_example(struct page_table *pt, int page) {
-    cout << "page fault on page #" << page << endl;
+    std::cout << "page fault on page #" << page << std::endl;
 
     // Print the page table contents
-    cout << "Before ---------------------------" << endl;
+    std::cout << "Before ---------------------------" << std::endl;
     page_table_print(pt);
-    cout << "----------------------------------" << endl;
+    std::cout << "----------------------------------" << std::endl;
 
     // Map the page to the same frame number and set to read/write
     page_table_set_entry(pt, page, page, PROT_READ | PROT_WRITE);
 
     // Print the page table contents
-    cout << "After ----------------------------" << endl;
+    std::cout << "After ----------------------------" << std::endl;
     page_table_print(pt);
-    cout << "----------------------------------" << endl;
+    std::cout << "----------------------------------" << std::endl;
 }
 
 // Removes a page from a container
@@ -274,7 +272,9 @@ void page_fault_handler(struct page_table *pt, int page) {
 int main(int argc, char *argv[]) {
     // Check argument count
     if (argc != 5) {
-        cerr << "Usage: virtmem <npages> <nframes> <rand|fifo|custom> <sort|scan|focus>" << endl;
+        std::cerr << "Usage: virtmem <npages> <nframes> "
+                  << "<rand|fifo|lifo|rd_rand|wr_rand|mrw|lrw|clock> "
+                  << "<sort|scan|focus>" << std::endl;
         exit(1);
     }
 
@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(algorithm, "clock") == 0) {
         policy = policy_clock;
     } else {
-        cerr << "ERROR: Unknown algorithm: " << algorithm << endl;
+        std::cerr << "ERROR: Unknown algorithm: " << algorithm << std::endl;
         exit(1);
     }
 
@@ -310,10 +310,10 @@ int main(int argc, char *argv[]) {
     program_f program = NULL;
     if (!strcmp(program_name, "sort")) {
         if (nframes < 2) {
-            cerr << "ERROR: nFrames >= 2 for sort program" << endl;
+            std::cerr << "ERROR: nFrames >= 2 for sort program" << std::endl;
             exit(1);
         } else if (strcmp(algorithm, "lifo") == 0) {
-            cerr << "lifo does not work with scan\n";
+            std::cerr << "lifo does not work with scan\n";
             return 0;
         }
         program = sort_program;
@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
     } else if (!strcmp(program_name, "focus")) {
         program = focus_program;
     } else {
-        cerr << "ERROR: Unknown program: " << program_name << endl;
+        std::cerr << "ERROR: Unknown program: " << program_name << std::endl;
         exit(1);
     }
 
@@ -330,20 +330,20 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < nframes; ++i) {
         free_frames.push(i);
     }
-    // Initialize and use bits for clock
+    // Initialize and use bits for clock policy
     use_bits = new int[nframes];
 
     // Create a virtual disk
     disk = disk_open("myvirtualdisk", npages);
     if (!disk) {
-        cerr << "ERROR: Couldn't create virtual disk: " << strerror(errno) << endl;
+        std::cerr << "ERROR: Couldn't create virtual disk: " << strerror(errno) << std::endl;
         return 1;
     }
 
     // Create a page table
     struct page_table *pt = page_table_create(npages, nframes, page_fault_handler);
     if (!pt) {
-        cerr << "ERROR: Couldn't create page table: " << strerror(errno) << endl;
+        std::cerr << "ERROR: Couldn't create page table: " << strerror(errno) << std::endl;
         return 1;
     }
 
@@ -354,8 +354,13 @@ int main(int argc, char *argv[]) {
     // Clean up the page table and disk
     page_table_delete(pt);
     disk_close(disk);
-    cout << "Page faults: " << page_faults << " || Disk reads: " << num_reads
-         << " || Disk writes: " << num_writes << endl;
+
+    // Print results
+    std::cout << "Results: ---------" << std::endl;
+    std::cout << "Page faults: " << page_faults << std::endl;
+    std::cout << "Disk reads: " << num_reads << std::endl;
+    std::cout << "Disk writes: " << num_writes << std::endl;
+    std::cout << "------------------" << std::endl;
 
     return 0;
 }
