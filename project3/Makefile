@@ -5,7 +5,7 @@ CC_EXTRA = -Wno-unused-parameter
 
 # MACROs for run-all
 # Policies: rand fifo lifo rd_rand wr_rand mrw lrw clock
-POLICIES = rand fifo lifo rd_rand wr_rand mrw lrw clock
+POLICIES = rand fifo lifo rd_rand wr_rand mrw lrw
 PROGRAMS = scan sort focus
 PAGES = 3
 FRAMES = 2
@@ -39,8 +39,7 @@ disk.o: disk.cpp
 program.o: program.cpp
 	$(CC) $(CC_FLAGS) program.cpp -o program.o
 
-debug:
-	rm -f *.o out.txt virtmem myvirtualdisk
+debug: clean
 	$(MAKE) DEBUG=1
 
 # Ex. make run-all POLICIES="rand fifo clock" PROGRAMS="sort focus"
@@ -49,6 +48,20 @@ run-all: virtmem
 	$(foreach POLICY, $(POLICIES), \
 	$(foreach PROGRAM, $(PROGRAMS), \
 	./virtmem $(PAGES) $(FRAMES) $(POLICY) $(PROGRAM) $(NEWLINE)))
+
+# Loops for output
+LOOPS = 2 5 10 20 30 40 50 60 70 80 90 100
+
+output: clean virtmem
+	clear
+	echo "make output: \n" > out.txt
+	$(MAKE) output-help >> out.txt
+
+output-help:
+	$(foreach FRAME, $(LOOPS), \
+	$(foreach POLICY, $(POLICIES), \
+	$(foreach PROGRAM, $(PROGRAMS), \
+	./virtmem 100 $(FRAME) $(POLICY) $(PROGRAM) $(NEWLINE))))
 
 clean:
 	rm -f *.o out.txt virtmem myvirtualdisk
