@@ -85,7 +85,7 @@ void page_fault_handler_example(struct page_table *pt, int page) {
     cout << "----------------------------------" << endl;
 }
 
-// Helper Functions
+// Removes a page from a container
 template <typename Container>
 void remove_page(Container &cont, int page) {
     for (auto iter = cont.begin(); iter != cont.end(); iter++) {
@@ -131,10 +131,12 @@ int policy_rd_rand(struct page_table *pt) {
         evicted_page = policy_rand(pt);
     }
     // Check if all pages are dirty
-    if (size == nframes) {
+    else if (size == nframes) {
         evicted_page = policy_rand(pt);
         remove_page(dirty_pages, evicted_page);
-    } else {
+    }
+    // Otherwise find all pages that are read-only
+    else {
         std::vector<int> rdonly;
         for (int i = 0; i < nframes; i++) {
             int frame, bits;
