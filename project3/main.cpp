@@ -10,6 +10,7 @@ how to use the page table and disk interfaces.
 
 #include <cassert>
 #include <cstdlib>
+#include <deque>
 #include <iostream>
 #include <queue>
 #include <unordered_map>
@@ -37,6 +38,8 @@ using namespace std;
 
 // Contains free frames
 std::queue<int> free_frames;
+// Contains allocated frames
+std::deque<int> used_frames;
 // Map from PM frame to VM page
 int *frame_mapping;
 
@@ -45,10 +48,6 @@ int *frame_mapping;
 int clock_hand = 0;
 // Tracks use bits for each frame
 int *use_bits;
-
-// FIFO Policy
-// Contains allocated frames
-std::queue<int> fifo_queue;
 
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
@@ -91,7 +90,20 @@ int policy_rand(struct page_table *pt) {
     return rand() % nframes;
 }
 
-int policy_readonly_rand(struct page_table *pt) {
+int policy_fifo(struct page_table *pt) {
+    int evicted_frame = used_frames.front();
+    used_frames.pop_front();
+    return evicted_frame;
+}
+
+int policy_lifo(struct page_table *pt) {
+    int evicted_frame = used_frames.back();
+    used_frames.pop_back();
+    return evicted_frame;
+}
+
+// Chooses a random read-only frame
+int policy_rd_rand(struct page_table *pt) {
     std::vector<int> rdonly_frames;
     std::vector<int> dirty_frames;
 
@@ -117,10 +129,25 @@ int policy_readonly_rand(struct page_table *pt) {
     }
 }
 
-int policy_FIFO(struct page_table *pt) {
-    int evicted_frame = fifo_queue.front();
-    fifo_queue.pop();
-    return evicted_frame;
+// Choose a random write frame
+int policy_wr_rand(struct page_table *pt) {
+    return 0;
+}
+
+// Most recently written
+int policy_mrw(struct page_table *pt) {
+    auto iter = used_frames.end();
+    int rframe = (*iter);
+    for (; iter != used_frames.begin(); iter--) {
+        int frame, bits;
+        int page = frame_mapping[(*iter)];
+        page_table_get_entry(pt, page, &frame, &bits);
+        // Check page protections
+        if (bits & PROT_WRITE) {
+            return frame;
+        }
+    }
+    return rframe;
 }
 
 int policy_clock(struct page_table *pt) {
@@ -172,7 +199,6 @@ void page_fault_handler(struct page_table *pt, int page) {
             PRINT("Policy: Evicted page %d/frame %d\n", evicted_page, evicted_frame);
             // Write frame to disk if the frame is dirty
             if (evicted_bits & PROT_WRITE) {
-                // need corresponding page for write
                 disk_write(disk, evicted_page, phys_mem + evicted_frame * PAGE_SIZE);
                 num_writes++;
             }
@@ -183,16 +209,13 @@ void page_fault_handler(struct page_table *pt, int page) {
         // Read frame from disk into physical memory and update page table
         disk_read(disk, page, phys_mem + new_frame * PAGE_SIZE);
         page_table_set_entry(pt, page, new_frame, PROT_READ);
-        num_reads++;
         // Update policy variables
         frame_mapping[new_frame] = page;
-        if (policy == policy_FIFO) {
-            fifo_queue.push(new_frame);
-        }
-
         use_bits[new_frame] = 1;
-        // Update counter
+        used_frames.push_back(new_frame);
+        // Update counters
         page_faults++;
+        num_reads++;
         PRINT("Handler: Added page %d/frame %d into page table\n", page, new_frame);
     }
     // Check if read-only page was written to
@@ -222,9 +245,13 @@ int main(int argc, char *argv[]) {
     if (strcmp(algorithm, "rand") == 0) {
         policy = policy_rand;
     } else if (strcmp(algorithm, "fifo") == 0) {
-        policy = policy_FIFO;
-    } else if (strcmp(algorithm, "rdonly") == 0) {
-        policy = policy_readonly_rand;
+        policy = policy_fifo;
+    } else if (strcmp(algorithm, "lifo") == 0) {
+        policy = policy_lifo;
+    } else if (strcmp(algorithm, "rd_rand") == 0) {
+        policy = policy_rd_rand;
+    } else if (strcmp(algorithm, "mrw") == 0) {
+        policy = policy_mrw;
     } else if (strcmp(algorithm, "clock") == 0) {
         policy = policy_clock;
     } else {
