@@ -52,10 +52,14 @@ int (*policy)(struct page_table *) = nullptr;
 int npages;
 // Number of physical frames
 int nframes;
-// Page fault counter
-int page_faults = 0;
 // inital clock hand position
 int clock_hand = 0;
+// Page fault counter
+int page_faults = 0;
+// Disk read counter
+int num_reads = 0;
+// Disk write counter
+int num_writes = 0;
 
 
 // Pointer to disk for access from handlers
@@ -144,6 +148,7 @@ void page_fault_handler(struct page_table *pt, int page) {
             if (evicted_bits & PROT_WRITE) {
                 // need corresponding page for write
                 disk_write(disk, evicted_page, phys_mem + evicted_frame * PAGE_SIZE);
+                num_writes++;
             }
             // Set the new frame to the evicted frame
             page_table_set_entry(pt, evicted_page, 0, 0);
@@ -152,6 +157,7 @@ void page_fault_handler(struct page_table *pt, int page) {
         // Read frame from disk into physical memory and update page table
         disk_read(disk, page, phys_mem + new_frame * PAGE_SIZE);
         page_table_set_entry(pt, page, new_frame, PROT_READ);
+        num_reads++;
         // Update policy variables
         frame_mapping[new_frame] = page;
         if (policy == policy_FIFO) {
@@ -166,6 +172,7 @@ void page_fault_handler(struct page_table *pt, int page) {
     // Check if read-only page was written to
     else if ((bits & PROT_READ) && !(bits & PROT_WRITE)) {
         page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+        use_bits[frame] = 1;
         PRINT("Handler: PROT_WRITE added to page %d/frame %d\n", page, frame);
     }
 
@@ -264,6 +271,10 @@ int main(int argc, char *argv[]) {
     // Clean up the page table and disk
     page_table_delete(pt);
     disk_close(disk);
+    cout << "Page faults: " << page_faults
+     << " || Disk reads: " << num_reads
+     << " || Disk writes: " << num_writes << endl;
+
 
     return 0;
 }
