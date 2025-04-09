@@ -42,6 +42,7 @@ debug:
 	rm -f *.o out.txt virtmem myvirtualdisk
 	$(MAKE) DEBUG=1
 
+# Ex. make run-all POLICIES="rand fifo clock" PROGRAMS="sort focus"
 run-all: virtmem
 	clear
 	$(foreach POLICY, $(POLICIES), \
