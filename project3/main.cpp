@@ -85,6 +85,19 @@ void page_fault_handler_example(struct page_table *pt, int page) {
     cout << "----------------------------------" << endl;
 }
 
+// Helper Functions
+template <typename Container>
+void remove_page(Container &cont, int page) {
+    for (auto iter = cont.begin(); iter != cont.end(); iter++) {
+        if ((*iter) == page) {
+            cont.erase(iter);
+            return;
+        }
+    }
+    std::cerr << "Page does not exist in container" << std::endl;
+    abort();
+}
+
 // Page eviction policies
 
 // Chooses random page
@@ -111,25 +124,31 @@ int policy_lifo(struct page_table *pt) {
 
 // Chooses a random read-only page
 int policy_rd_rand(struct page_table *pt) {
-    // Check if there are dirty pages
-    if (!dirty_pages.empty()) {
+    int evicted_page;
+    int size = dirty_pages.size();
+    // Check if no pages dirty pages
+    if (size == 0) {
+        evicted_page = policy_rand(pt);
+    }
+    // Check if all pages are dirty
+    if (size == nframes) {
+        evicted_page = policy_rand(pt);
+        remove_page(dirty_pages, evicted_page);
+    } else {
         std::vector<int> rdonly;
-        rdonly.reserve(nframes);
-        int i, evicted_page;
-        for (i = 0; i < nframes; i++) {
+        for (int i = 0; i < nframes; i++) {
             int frame, bits;
             page_table_get_entry(pt, used_pages[i], &frame, &bits);
+            // Check if page is not dirty
             if (!(bits & PROT_WRITE)) {
                 rdonly.push_back(i);
             }
         }
-        int index = rand() % i;
+        int index = rdonly[rand() % rdonly.size()];
         evicted_page = used_pages[index];
         used_pages.erase(used_pages.begin() + index);
-        return evicted_page;
-    } else {
-        return policy_rand(pt);
     }
+    return evicted_page;
 }
 
 // Choose a random dirty page
@@ -150,6 +169,7 @@ int policy_mrw(struct page_table *pt) {
     // Check if there are dirty pages
     if (!dirty_pages.empty()) {
         int evicted_page = dirty_pages.back();
+        remove_page(used_pages, evicted_page);
         dirty_pages.pop_back();
         return evicted_page;
     }
@@ -174,7 +194,7 @@ int policy_clock(struct page_table *pt) {
         // Otherwise clear the use bit
         else {
             use_bits[frame] = 0;
-            clock_hand = (clock_hand + 1) % used_pages.size();
+            clock_hand = (clock_hand + 1) % nframes;
         }
     }
 }
@@ -252,6 +272,8 @@ int main(int argc, char *argv[]) {
         policy = policy_rand;
     } else if (strcmp(algorithm, "fifo") == 0) {
         policy = policy_fifo;
+    } else if (strcmp(algorithm, "lifo") == 0) {
+        policy = policy_lifo;
     } else if (strcmp(algorithm, "rd_rand") == 0) {
         policy = policy_rd_rand;
     } else if (strcmp(algorithm, "wr_rand") == 0) {
@@ -271,6 +293,9 @@ int main(int argc, char *argv[]) {
         if (nframes < 2) {
             cerr << "ERROR: nFrames >= 2 for sort program" << endl;
             exit(1);
+        } else if (strcmp(algorithm, "lifo") == 0) {
+            cerr << "lifo does not work with scan\n";
+            return 0;
         }
         program = sort_program;
     } else if (!strcmp(program_name, "scan")) {
