@@ -41,7 +41,7 @@ std::queue<int> free_frames;
 std::queue<int> fifo_queue;
 // Map from PM frame to VM page
 int *frame_mapping;
-
+// Tracks the use bits of each frame
 int *use_bits;
 
 // Prototype for test program
@@ -157,6 +157,7 @@ void page_fault_handler(struct page_table *pt, int page) {
         if (policy == policy_FIFO) {
             fifo_queue.push(new_frame);
         }
+        
         use_bits[new_frame] = 1;
         // Update counter
         page_faults++;
