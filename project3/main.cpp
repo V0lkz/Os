@@ -38,10 +38,10 @@ using namespace std;
 
 // Contains free frames
 std::queue<int> free_frames;
-// Contains allocated frames
-std::deque<int> used_frames;
-// Map from PM frame to VM page
-int *frame_mapping;
+// Contains allocated pages in fifo order
+std::deque<int> used_pages;
+// Contains dirty pages in fifo order
+std::vector<int> dirty_pages;
 
 // Clock Policy
 // Inital clock hand position
@@ -87,92 +87,94 @@ void page_fault_handler_example(struct page_table *pt, int page) {
 
 // Page eviction policies
 
-// Chooses random frame
+// Chooses random page
 int policy_rand(struct page_table *pt) {
-    return rand() % nframes;
+    int index = rand() % used_pages.size();
+    int evicted_page = used_pages[index];
+    used_pages.erase(used_pages.begin() + index);
+    return evicted_page;
 }
 
-// Chooses first (oldest) frame
+// Chooses first (oldest) page
 int policy_fifo(struct page_table *pt) {
-    int evicted_frame = used_frames.front();
-    used_frames.pop_front();
-    return evicted_frame;
+    int evicted_page = used_pages.front();
+    used_pages.pop_front();
+    return evicted_page;
 }
 
-// Chooses last (newest) frame
+// Chooses last (newest) page
 int policy_lifo(struct page_table *pt) {
-    int evicted_frame = used_frames.back();
-    used_frames.pop_back();
-    return evicted_frame;
+    int evicted_page = used_pages.back();
+    used_pages.pop_back();
+    return evicted_page;
 }
 
-// Chooses a random read-only frame
+// Chooses a random read-only page
 int policy_rd_rand(struct page_table *pt) {
-    std::vector<int> rdonly_frames;
-    std::vector<int> dirty_frames;
-
-    // Iteratre through physical memory frames
-    for (int frame = 0; frame < nframes; frame++) {
-        // Get page table entry
-        int dummy_frame, bits;
-        int page = frame_mapping[frame];
-        page_table_get_entry(pt, page, &dummy_frame, &bits);
-        // Check page protections
-        if (bits & PROT_WRITE) {
-            dirty_frames.push_back(frame);
-        } else {
-            rdonly_frames.push_back(frame);
+    // Check if there are dirty pages
+    if (!dirty_pages.empty()) {
+        std::vector<int> rdonly;
+        rdonly.reserve(nframes);
+        int i, evicted_page;
+        for (i = 0; i < nframes; i++) {
+            int frame, bits;
+            page_table_get_entry(pt, used_pages[i], &frame, &bits);
+            if (!(bits & PROT_WRITE)) {
+                rdonly.push_back(i);
+            }
         }
-    }
-
-    // Check if there are read-only frames
-    if (!rdonly_frames.empty()) {
-        return rdonly_frames[rand() % rdonly_frames.size()];
+        int index = rand() % i;
+        evicted_page = used_pages[index];
+        used_pages.erase(used_pages.begin() + index);
+        return evicted_page;
     } else {
-        return dirty_frames[rand() % dirty_frames.size()];
+        return policy_rand(pt);
     }
 }
 
-// Choose a random write frame
+// Choose a random dirty page
 int policy_wr_rand(struct page_table *pt) {
-    return 0;
+    // Check if there are dirty pages
+    if (!dirty_pages.empty()) {
+        int index = rand() % dirty_pages.size();
+        int evicted_page = dirty_pages[index];
+        dirty_pages.erase(dirty_pages.begin() + index);
+        return evicted_page;
+    } else {
+        return policy_rand(pt);
+    }
 }
 
-// Newest frame that was written to
+// Newest page that was written to
 int policy_mrw(struct page_table *pt) {
-    for (auto iter = used_frames.end(); iter != used_frames.begin(); iter--) {
-        int frame, bits;
-        int page = frame_mapping[(*iter)];
-        page_table_get_entry(pt, page, &frame, &bits);
-        // Check page protections
-        if (bits & PROT_WRITE) {
-            used_frames.erase(iter);
-            return frame;
-        }
+    // Check if there are dirty pages
+    if (!dirty_pages.empty()) {
+        int evicted_page = dirty_pages.back();
+        dirty_pages.pop_back();
+        return evicted_page;
     }
     // Otherwise fifo
-    return policy_fifo(pt);
+    else {
+        return policy_fifo(pt);
+    }
 }
 
 int policy_clock(struct page_table *pt) {
     // Search for a frame with unset use bit
     while (true) {
-        // Get frame and page pointed by clock hand
-        int frame = clock_hand;
-        int page = frame_mapping[frame];
-
-        // Get corresponding page table entry
-        int dummy_frame, bits;
-        page_table_get_entry(pt, page, &dummy_frame, &bits);
-
+        // Get page table entry pointed by clock hand
+        int frame, bits;
+        int page = used_pages[clock_hand];
+        page_table_get_entry(pt, page, &frame, &bits);
         // Check if use bit is unset
         if (use_bits[frame] == 0) {
-            return frame;
+            used_pages.erase(used_pages.begin() + clock_hand);
+            return page;
         }
         // Otherwise clear the use bit
         else {
             use_bits[frame] = 0;
-            clock_hand = (clock_hand + 1) % nframes;
+            clock_hand = (clock_hand + 1) % used_pages.size();
         }
     }
 }
@@ -197,8 +199,8 @@ void page_fault_handler(struct page_table *pt, int page) {
         // Otherwise use frame eviction policy
         else {
             // Get evicted page table entry
+            int evicted_page = policy(pt);
             int evicted_frame, evicted_bits;
-            int evicted_page = frame_mapping[policy(pt)];
             page_table_get_entry(pt, evicted_page, &evicted_frame, &evicted_bits);
             PRINT("Policy: Evicted page %d/frame %d\n", evicted_page, evicted_frame);
             // Write frame to disk if the frame is dirty
@@ -214,9 +216,8 @@ void page_fault_handler(struct page_table *pt, int page) {
         disk_read(disk, page, phys_mem + new_frame * PAGE_SIZE);
         page_table_set_entry(pt, page, new_frame, PROT_READ);
         // Update policy variables
-        frame_mapping[new_frame] = page;
+        used_pages.push_back(page);
         use_bits[new_frame] = 1;
-        used_frames.push_back(new_frame);
         // Update counters
         page_faults++;
         num_reads++;
@@ -226,6 +227,7 @@ void page_fault_handler(struct page_table *pt, int page) {
     else if ((bits & PROT_READ) && !(bits & PROT_WRITE)) {
         page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
         use_bits[frame] = 1;
+        dirty_pages.push_back(page);
         PRINT("Handler: PROT_WRITE added to page %d/frame %d\n", page, frame);
     }
 
@@ -250,10 +252,10 @@ int main(int argc, char *argv[]) {
         policy = policy_rand;
     } else if (strcmp(algorithm, "fifo") == 0) {
         policy = policy_fifo;
-    } else if (strcmp(algorithm, "lifo") == 0) {
-        policy = policy_lifo;
     } else if (strcmp(algorithm, "rd_rand") == 0) {
         policy = policy_rd_rand;
+    } else if (strcmp(algorithm, "wr_rand") == 0) {
+        policy = policy_wr_rand;
     } else if (strcmp(algorithm, "mrw") == 0) {
         policy = policy_mrw;
     } else if (strcmp(algorithm, "clock") == 0) {
@@ -284,8 +286,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < nframes; ++i) {
         free_frames.push(i);
     }
-    // Initialize frame mapping and use bits
-    frame_mapping = new int[nframes];
+    // Initialize and use bits for clock
     use_bits = new int[nframes];
 
     // Create a virtual disk
