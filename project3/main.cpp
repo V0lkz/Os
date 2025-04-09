@@ -86,16 +86,20 @@ void page_fault_handler_example(struct page_table *pt, int page) {
 }
 
 // Page eviction policies
+
+// Chooses random frame
 int policy_rand(struct page_table *pt) {
     return rand() % nframes;
 }
 
+// Chooses first (oldest) frame
 int policy_fifo(struct page_table *pt) {
     int evicted_frame = used_frames.front();
     used_frames.pop_front();
     return evicted_frame;
 }
 
+// Chooses last (newest) frame
 int policy_lifo(struct page_table *pt) {
     int evicted_frame = used_frames.back();
     used_frames.pop_back();
@@ -134,20 +138,20 @@ int policy_wr_rand(struct page_table *pt) {
     return 0;
 }
 
-// Most recently written
+// Newest frame that was written to
 int policy_mrw(struct page_table *pt) {
-    auto iter = used_frames.end();
-    int rframe = (*iter);
-    for (; iter != used_frames.begin(); iter--) {
+    for (auto iter = used_frames.end(); iter != used_frames.begin(); iter--) {
         int frame, bits;
         int page = frame_mapping[(*iter)];
         page_table_get_entry(pt, page, &frame, &bits);
         // Check page protections
         if (bits & PROT_WRITE) {
+            used_frames.erase(iter);
             return frame;
         }
     }
-    return rframe;
+    // Otherwise fifo
+    return policy_fifo(pt);
 }
 
 int policy_clock(struct page_table *pt) {
