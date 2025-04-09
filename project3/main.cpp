@@ -313,7 +313,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "ERROR: nFrames >= 2 for sort program" << std::endl;
             exit(1);
         } else if (strcmp(algorithm, "lifo") == 0) {
-            std::cerr << "lifo does not work with scan\n";
+            std::cerr << "lifo does not work with sort\n";
             return 0;
         }
         program = sort_program;
