@@ -7,8 +7,8 @@ CC_EXTRA = -Wno-unused-parameter
 # Policies: rand fifo lifo rd_rand wr_rand mrw lrw clock
 POLICIES = rand fifo lifo rd_rand wr_rand mrw lrw
 PROGRAMS = scan sort focus
-PAGES = 3
-FRAMES = 2
+PAGES = 10
+FRAMES = 5
 
 # Newline for run-all
 BLANK =
@@ -22,7 +22,7 @@ ifdef DEBUG
 	CC_EXTRA += -DDEBUG
 endif
 
-.PHONY = debug run-all clean
+.PHONY = debug run-all output output-help clean
 
 virtmem: main.o page_table.o disk.o program.o
 	$(CC) main.o page_table.o disk.o program.o -o virtmem
@@ -51,11 +51,12 @@ run-all: virtmem
 
 # Loops for output
 LOOPS = 2 5 10 20 30 40 50 60 70 80 90 100
+OUTFILE = out.txt
 
 output: clean virtmem
 	clear
-	echo "make output: \n" > out.txt
-	$(MAKE) output-help >> out.txt
+	echo "make output: \n" > $(OUTFILE)
+	$(MAKE) output-help >> $(OUTFILE)
 
 output-help:
 	$(foreach FRAME, $(LOOPS), \

@@ -301,6 +301,9 @@ int main(int argc, char *argv[]) {
         policy = policy_lrw;
     } else if (strcmp(algorithm, "clock") == 0) {
         policy = policy_clock;
+    } else if (strcmp(algorithm, "custom") == 0) {
+        // Add our "cutsom" policy
+        return 0;
     } else {
         std::cerr << "ERROR: Unknown algorithm: " << algorithm << std::endl;
         exit(1);
