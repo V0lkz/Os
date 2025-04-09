@@ -42,6 +42,8 @@ std::queue<int> fifo_queue;
 // Map from PM frame to VM page
 int *frame_mapping;
 
+int *use_bits;
+
 // Prototype for test program
 typedef void (*program_f)(char *data, int length);
 int (*policy)(struct page_table *) = nullptr;
@@ -52,6 +54,9 @@ int npages;
 int nframes;
 // Page fault counter
 int page_faults = 0;
+// inital clock hand position
+int clock_hand = 0;
+
 
 // Pointer to disk for access from handlers
 struct disk *disk = nullptr;
@@ -152,6 +157,7 @@ void page_fault_handler(struct page_table *pt, int page) {
         if (policy == policy_FIFO) {
             fifo_queue.push(new_frame);
         }
+        use_bits[new_frame] = 1;
         // Update counter
         page_faults++;
         PRINT("Handler: Added page %d/frame %d into page table\n", page, new_frame);
@@ -163,6 +169,26 @@ void page_fault_handler(struct page_table *pt, int page) {
     }
 
     PT_PRINT("After", pt);
+}
+
+int policy_clock(struct page_table *pt){
+    //Search for a frame with unset use bit
+    while(true){
+        int frame = clock_hand;
+        int page = frame_mapping[clock_hand];
+
+        int dummy_frame, bits;
+        page_table_get_entry(pt, page, &dummy_frame, &bits);
+
+        if(use_bits[frame] == 0) {
+            return frame;
+        }
+        //Clear the use bit of the frame currently pointed by the clock hand
+        else {
+            use_bits[frame] = 0;
+            clock_hand = (clock_hand + 1) % nframes;
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -185,6 +211,8 @@ int main(int argc, char *argv[]) {
         policy = policy_FIFO;
     } else if (strcmp(algorithm, "readonly_rand") == 0) {
         policy = policy_readonly_rand;
+    } else if (strcmp(algorithm, "clock") == 0) {
+        policy = policy_clock;
     } else {
         cerr << "ERROR: Unknown algorithm: " << algorithm << endl;
         exit(1);
@@ -213,6 +241,7 @@ int main(int argc, char *argv[]) {
     }
     frame_mapping = new int[nframes];
 
+    use_bits = new int[nframes];
     // Create a virtual disk
     disk = disk_open("myvirtualdisk", npages);
     if (!disk) {
