@@ -41,7 +41,7 @@ std::queue<int> free_frames;
 // Contains allocated pages in fifo order
 std::deque<int> used_pages;
 // Contains dirty pages in fifo order
-std::vector<int> dirty_pages;
+std::deque<int> dirty_pages;
 
 // Clock Policy
 // Inital clock hand position
@@ -174,16 +174,28 @@ int policy_mrw(struct page_table *pt) {
     // Check if there are dirty pages
     if (!dirty_pages.empty()) {
         int evicted_page = dirty_pages.back();
-        remove_page(used_pages, evicted_page);
         dirty_pages.pop_back();
+        remove_page(used_pages, evicted_page);
         return evicted_page;
     }
     // Otherwise fifo
-    else {
-        return policy_fifo(pt);
-    }
+    return policy_fifo(pt);
 }
 
+// Oldest page that was written to
+int policy_lrw(struct page_table *pt) {
+    // Check if there are dirty pages
+    if (!dirty_pages.empty()) {
+        int evicted_page = dirty_pages.front();
+        dirty_pages.pop_front();
+        remove_page(used_pages, evicted_page);
+        return evicted_page;
+    }
+    // Otherwise fifo
+    return policy_fifo(pt);
+}
+
+// Clock policy
 int policy_clock(struct page_table *pt) {
     // Search for a frame with unset use bit
     while (true) {
@@ -285,6 +297,8 @@ int main(int argc, char *argv[]) {
         policy = policy_wr_rand;
     } else if (strcmp(algorithm, "mrw") == 0) {
         policy = policy_mrw;
+    } else if (strcmp(algorithm, "lrw") == 0) {
+        policy = policy_lrw;
     } else if (strcmp(algorithm, "clock") == 0) {
         policy = policy_clock;
     } else {

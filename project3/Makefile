@@ -4,8 +4,8 @@ CC_FLAGS = -Wall -Wextra -Werror -pedantic -g -c
 CC_EXTRA = -Wno-unused-parameter
 
 # MACROs for run-all
-# Policies: rand fifo lifo rd_rand wr_rand mrw clock
-POLICIES = rand fifo rd_rand wr_rand mrw clock
+# Policies: rand fifo lifo rd_rand wr_rand mrw lrw clock
+POLICIES = rand fifo rd_rand wr_rand mrw lrw clock
 PROGRAMS = scan sort focus
 PAGES = 3
 FRAMES = 2
