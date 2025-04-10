@@ -22,6 +22,12 @@ ifdef DEBUG
 	CC_EXTRA += -DDEBUG
 endif
 
+# Enable stderr data collection
+# PF: 1, DR: 2, DW: 3
+ifdef DATA
+	CC_EXTRA += -DDATA=$(DATA)
+endif
+
 .PHONY = debug run-all output output-help clean
 
 virtmem: main.o page_table.o disk.o program.o
@@ -50,7 +56,7 @@ run-all: virtmem
 	./virtmem $(PAGES) $(FRAMES) $(POLICY) $(PROGRAM) $(NEWLINE)))
 
 # Loops for output
-LOOPS = 2 5 10 20 30 40 50 60 70 80 90 100
+LOOPS = 10 20 30 40 50 60 70 80 90 100
 OUTFILE = out.txt
 
 output: clean virtmem

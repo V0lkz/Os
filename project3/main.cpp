@@ -302,8 +302,7 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(algorithm, "clock") == 0) {
         policy = policy_clock;
     } else if (strcmp(algorithm, "custom") == 0) {
-        // Add our "cutsom" policy
-        return 0;
+        policy = policy_lrw;
     } else {
         std::cerr << "ERROR: Unknown algorithm: " << algorithm << std::endl;
         exit(1);
@@ -350,6 +349,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // fprintf(stderr, "%d %d %s %s\n", npages, nframes, algorithm, program_name);
+
     // Run the specified program
     char *virtmem = page_table_get_virtmem(pt);
     program(virtmem, npages * PAGE_SIZE);
@@ -360,10 +361,19 @@ int main(int argc, char *argv[]) {
 
     // Print results
     std::cout << "Results: ---------" << std::endl;
-    std::cout << "Page faults: " << page_faults << std::endl;
-    std::cout << "Disk reads: " << num_reads << std::endl;
-    std::cout << "Disk writes: " << num_writes << std::endl;
+    std::cout << "  Page faults: " << page_faults << std::endl;
+    std::cout << "  Disk reads: " << num_reads << std::endl;
+    std::cout << "  Disk writes: " << num_writes << std::endl;
     std::cout << "------------------" << std::endl;
 
+#ifdef DATA
+    if (DATA == 1) {
+        std::cerr << algorithm << " pf " << page_faults << std::endl;
+    } else if (DATA == 2) {
+        std::cerr << algorithm << " dr " << num_reads << std::endl;
+    } else if (DATA == 3) {
+        std::cerr << algorithm << " dw " << num_writes << std::endl;
+    }
+#endif
     return 0;
 }
