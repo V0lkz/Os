@@ -360,11 +360,9 @@ int main(int argc, char *argv[]) {
     disk_close(disk);
 
     // Print results
-    std::cout << "Results: ---------" << std::endl;
-    std::cout << "  Page faults: " << page_faults << std::endl;
-    std::cout << "  Disk reads: " << num_reads << std::endl;
-    std::cout << "  Disk writes: " << num_writes << std::endl;
-    std::cout << "------------------" << std::endl;
+    std::cout << "Page faults: " << page_faults;
+    std::cout << " | Disk reads: " << num_reads;
+    std::cout << " | Disk writes: " << num_writes << std::endl;
 
 #ifdef DATA
     if (DATA == 1) {
