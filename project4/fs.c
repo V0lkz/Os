@@ -67,7 +67,29 @@ void fs_debug()
 
 int fs_format()
 {
-    return 0;
+    int nblocks = disk_size();
+    int ninodeblocks = NUM_INODE_BLOCKS(nblocks);
+    int ninodes = ninodeblocks * INODES_PER_BLOCK;
+
+    //empty the super block
+    memset(&superblock, 0, sizeof(union fs_block));
+
+    superblock.super.magic = FS_MAGIC;
+    superblock.super.ninodeblocks = ninodeblocks;
+    superblock.super.ninodes = ninodes;
+    superblock.super.nblocks = nblocks;
+
+    //write super block to block 0
+    disk_write(0, superblock.data);
+
+    union fs_block empty_block;
+    memset(&empty_block, 0, sizeof(empty_block));
+    // empty the inodes
+    for (int i = 0; i < ninodeblocks; i++) {
+     disk_write(i + 1, empty_block.data);
+    }
+
+    return 1;
 }
 
 int fs_mount()
