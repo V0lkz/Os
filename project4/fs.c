@@ -94,7 +94,41 @@ int fs_format()
 
 int fs_mount()
 {
-    return 0;
+    //read and get data from super block
+    union fs_block block;
+    disk_read(0, block.data);
+    
+
+    if(block.super.magic != FS_MAGIC){
+        return 0;
+    }
+
+    int nblock = block.super.nblocks;
+
+    if(freemap){
+        free(freemap);
+    }
+
+    freemap = malloc(sizeof(int) * nblock);
+
+    if(!freemap){
+        return 0;
+    }
+
+    //set all blocks as free
+    for (int i = 0; i < nblock; i++) {
+        freemap[i] = 0;
+    }
+
+    //set super block and inode blocks as used
+    freemap[0] = 1;
+    for(int i = 1; i <= block.super.ninodeblocks; i++){
+        freemap[i] = 0;
+    }
+
+
+
+    return 1;
 }
 
 int fs_unmount()
