@@ -1,5 +1,7 @@
 GCC=/usr/bin/gcc
 
+.PHONY = lint clean
+
 simplefs: shell.o fs.o disk.o
 	$(GCC) shell.o fs.o disk.o -o simplefs
 
@@ -11,6 +13,9 @@ fs.o: fs.c fs.h
 
 disk.o: disk.c disk.h
 	$(GCC) -Wall disk.c -c -o disk.o -g
+
+lint:
+	clang-format -i fs.c
 
 clean:
 	rm -f simplefs disk.o fs.o shell.o
