@@ -122,6 +122,25 @@ int fs_unmount() {
 }
 
 int fs_create() {
+    // Iterate through freemap and find first free inode
+    for (int i = 1; i < superblock.super.nblocks; i++) {
+        if (freemap[i] != 0) {
+            // Get disk and inode block index
+            const int disk_idx = (i / INODES_PER_BLOCK) + 1;
+            const int inode_idx = i % INODES_PER_BLOCK;
+            // Read inode block from disk 
+            union fs_block block;
+            disk_read(disk_idx, block.data);
+            // Update inode
+            block.inode[inode_idx].isvalid = 1;
+            block.inode[inode_idx].size = 0;
+            // Write inode block back to disk
+            disk_write(disk_idx, block.data);
+            // Update freemap
+            freemap[i] = 1;
+            return i;
+        }
+    }
     return -1;
 }
 
