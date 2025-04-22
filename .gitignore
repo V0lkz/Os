@@ -3,7 +3,6 @@
 .devcontainer
 .vscode
 replit.nix
-
 # Project 2
 project2/tests/server/http_server
 project2/uthread-sync-demo
@@ -31,5 +30,6 @@ project3/out.txt
 project3/*.o
 # Other files
 project3/.nfs*
-
-
+# Project4
+project4/*.o
+project4/simplefs
