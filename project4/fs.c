@@ -109,8 +109,54 @@ int fs_mount() {
     for (int i = 0; i < nblocks; i++) {
         freemap[i] = 0;
     }
-    // Set superblock as used
+    // Set superblock and inode blocks as used
     freemap[0] = 1;
+    for (int i = 1; i <= superblock.super.ninodeblocks; i++) {
+        freemap[i] = 1; 
+    }
+
+     // Scan  through all inodes
+    union fs_block block;
+    for (int i = 0; i < superblock.super.ninodes; i++) {
+        //Retrives the block number of current inodes
+        int block_num = (i / INODES_PER_BLOCK) + 1;
+        //Retrives the index number of current indoes 
+        int inode_index = i % INODES_PER_BLOCK;
+
+        disk_read(block_num, block.data);
+        struct fs_inode *inode = &block.inode[inode_index];
+
+        //if inode is in unused move to next index
+        if (!inode->isvalid) continue;
+
+        // Search through data block and mark block as used in free map
+        for (int j = 0; j < POINTERS_PER_INODE; j++) {
+            int b = inode->direct[j];
+            if (b > 0 && b < nblocks) {
+                freemap[b] = 1;
+            }
+        }
+
+        // Search through indirect block 
+        // Mark indirect block as used in free map
+        int id = inode->indirect;
+        if (id > 0 && id < nblocks) {
+            freemap[id] = 1;
+
+            union fs_block indirect_block;
+            disk_read(id, indirect_block.data);
+
+            // Search all blocks pointed to by the indirect block
+            // Mark blocks as used in free map
+            for (int j = 0; j < POINTERS_PER_BLOCK; j++) {
+                int b = indirect_block.pointers[j];
+                if (b > 0 && b < nblocks) {
+                    freemap[b] = 1;
+                }
+            }
+        }
+    }
+
     return 1;
 }
 
