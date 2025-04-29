@@ -132,7 +132,7 @@ int fs_mount() {
         // Iterate through direct data block and mark block as used in freemap
         for (int j = 0; j < POINTERS_PER_INODE; j++) {
             int b = inode->direct[j];
-            if (b > 0 && b < nblock) {
+            if (b > 0 && b < nblocks) {
                 freemap[b] = 1;
             }
         }
@@ -186,7 +186,26 @@ int fs_create() {
 }
 
 int fs_delete(int inumber) {
-    return 0;
+    int disk_index = (inumber / INODES_PER_BLOCK) + 1;
+    int inode_index = inumber % INODES_PER_BLOCK;
+
+    union fs_block block;
+    disk_read(disk_index, block.data);
+    struct fs_inode *inode = &block.inode[inode_index];
+
+    if (inode->isvalid) {
+        for (int i = 0; i < size; i++)
+    }
+
+    // int isvalid;                       // 1 if valid (in use), 0 otherwise
+    // int size;                          // Size of file in bytes
+    // int direct[POINTERS_PER_INODE];    // Direct data block numbers (0 if invalid)
+    // int indirect;                      // Indirect data block number (0 if invalid)
+
+    // Clear inode block and write to disk
+    memset(inode, 0, sizeof(struct fs_inode));
+    disk_write(disk_index, block.data);
+    return 1;
 }
 
 int fs_getsize(int inumber) {
