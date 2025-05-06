@@ -94,6 +94,14 @@ int get_free_block() {
     return -1;
 }
 
+// Zero out specified disk block
+void disk_bzero(int b) {
+    union fs_block block;
+    disk_read(b, block.data);
+    memset(block.data, 0, sizeof(union fs_block));
+    disk_write(b, block.data);
+}
+
 void fs_debug() {
     union fs_block block;
 
@@ -110,8 +118,9 @@ void fs_debug() {
         for (int j = 0; j < INODES_PER_BLOCK; j++) {
             struct fs_inode *inode = &block.inode[j];
 
-            //if the inode is invalid continue
-            if (!inode->isvalid) continue;
+            // if the inode is invalid continue
+            if (!inode->isvalid)
+                continue;
 
             int inumber = (i - 1) * INODES_PER_BLOCK + j;
             printf("inode %d:\n", inumber);
@@ -247,14 +256,11 @@ int fs_create() {
         // Iterate through all inodes in the data block
         for (int j = 0; j < INODES_PER_BLOCK; j++) {
             if (block.inode[j].isvalid == 0) {
-                block.inode[j].isvalid = 1; 
-                block.inode[j].size = 0;
-                memset(block.inode[j].direct, 0, sizeof(block.inode[j].direct));
-                block.inode[j].indirect = 0; 
+                memset(block.inode[j].direct, 0, sizeof(struct fs_inode));
+                block.inode[j].isvalid = 1;
                 disk_write(i, block.data);
                 freemap[i] = 1;
-
-                //returns the inode number
+                // Return the inode number
                 return (i - 1) * INODES_PER_BLOCK + j;
             }
         }
@@ -319,8 +325,8 @@ int fs_read(int inumber, char *data, int length, int offset) {
     struct fs_inode inode;
     inode_load(inumber, &inode);
 
-    // Check if offset in bounds to reduce unnecessary reads
-    if (offset >= inode.size) {
+    // Check if inode is valid and offset within bounds
+    if (!inode.isvalid || offset >= inode.size) {
         return 0;
     }
 
@@ -364,7 +370,7 @@ int fs_read(int inumber, char *data, int length, int offset) {
 
 int fs_write(int inumber, const char *data, int length, int offset) {
     // Check if inumber, offset, and length are within bounds
-    if (inumber >= superblock.super.ninodes || inumber <0 || offset >= MAX_FILE_SIZE ||
+    if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
         offset < 0 || length <= 0) {
         return 0;
     }
@@ -374,7 +380,10 @@ int fs_write(int inumber, const char *data, int length, int offset) {
     struct fs_inode inode;
     inode_load(inumber, &inode);
 
-    if (!inode.isvalid) return 0;
+    // Check if inode is valid
+    if (!inode.isvalid) {
+        return 0;
+    }
 
     // Adjust length if total file size is greater than max file size
     if (offset + length > MAX_FILE_SIZE) {
@@ -391,12 +400,14 @@ int fs_write(int inumber, const char *data, int length, int offset) {
     while (nbytes < length) {
         // Check if data should be written to indirect pointers
         if (index >= POINTERS_PER_INODE && direct_index) {
-            if(inode.indirect == 0){
+            // Check if there are indirect blocks
+            if (inode.indirect == 0) {
                 inode.indirect = get_free_block();
-                if(inode.indirect == -1){
+                if (inode.indirect == -1) {
                     return 0;
                 }
-                memset(&indirect, 0, sizeof(indirect));
+                // Zero out the block
+                disk_bzero(inode.indirect);
             }
             disk_read(inode.indirect, indirect.data);
             index -= POINTERS_PER_INODE;
@@ -404,22 +415,24 @@ int fs_write(int inumber, const char *data, int length, int offset) {
             direct_index = 0;
         }
 
-        if ((direct_index && index >= POINTERS_PER_INODE) ||
-            (!direct_index && index >= POINTERS_PER_BLOCK)) {
-            break;
-        }
+        // if ((direct_index && index >= POINTERS_PER_INODE) ||
+        //     (!direct_index && index >= POINTERS_PER_BLOCK)) {
+        //     break;
+        // }
 
+        // Check if a new block should be allocated
         if (data_arr[index] == 0) {
             int b = get_free_block();
-            if (b == -1) break;
+            if (b == -1) {
+                break;
+            }
             data_arr[index] = b;
         }
 
+        // if (offset + nbytes >= inode.size) {
+        //     data_arr[index] = get_free_block();
+        // }
 
-        // Check if a new block should be allocated
-        if (offset + nbytes >= inode.size) {
-            data_arr[index] = get_free_block();
-        }
         // Calculate size in bytes to write to disk
         int size = length - nbytes;
         if (size > DISK_BLOCK_SIZE - boffset) {
@@ -438,14 +451,12 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         disk_write(data_arr[index], data + nbytes);
         nbytes += size;
         index++;
-
-        //update file size
-        if (offset + nbytes > inode.size) {
-            inode.size = offset + nbytes;
-        }
     }
 
     // Update inode
+    if (offset + nbytes > inode.size) {
+        inode.size = offset + nbytes
+    }
     inode_save(inumber, &inode);
     if (!direct_index) {
         disk_write(inode.indirect, indirect.data);
