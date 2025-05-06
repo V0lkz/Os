@@ -1,18 +1,19 @@
-GCC=/usr/bin/gcc
+GCC = /usr/bin/gcc
+CFLAGS = -Wall -Wextra -Werror
 
 .PHONY = lint clean
 
 simplefs: shell.o fs.o disk.o
-	$(GCC) shell.o fs.o disk.o -o simplefs
+	$(GCC) $(CFLAGS) shell.o fs.o disk.o -o simplefs
 
 shell.o: shell.c
-	$(GCC) -Wall shell.c -c -o shell.o -g
+	$(GCC) $(CFLAGS) shell.c -c -o shell.o -g
 
 fs.o: fs.c fs.h
-	$(GCC) -Wall fs.c -c -o fs.o -g
+	$(GCC) $(CFLAGS) fs.c -c -o fs.o -g
 
 disk.o: disk.c disk.h
-	$(GCC) -Wall disk.c -c -o disk.o -g
+	$(GCC) $(CFLAGS) disk.c -c -o disk.o -g
 
 lint:
 	clang-format -i fs.c

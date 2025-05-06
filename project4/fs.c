@@ -56,7 +56,7 @@ static int *freemap = NULL;
 /* Helper Functions */
 
 // Load inumber from disk into inode
-void inode_load(int inumber, struct fs_inode *inode) {
+static void inode_load(int inumber, struct fs_inode *inode) {
     // Calculate disk block index and inode index
     int disk_index = (inumber / INODES_PER_BLOCK) + 1;
     int inode_index = inumber % INODES_PER_BLOCK;
@@ -68,7 +68,7 @@ void inode_load(int inumber, struct fs_inode *inode) {
 }
 
 // Save inumber and inode data to disk
-void inode_save(int inumber, struct fs_inode *inode) {
+static void inode_save(int inumber, struct fs_inode *inode) {
     // Calculate disk block index and inode index
     int disk_index = (inumber / INODES_PER_BLOCK) + 1;
     int inode_index = inumber % INODES_PER_BLOCK;
@@ -83,7 +83,7 @@ void inode_save(int inumber, struct fs_inode *inode) {
 }
 
 // Returns first free index in freemap, -1 if none found
-int get_free_block() {
+static int get_free_block() {
     // Iterate through freemap data blocks
     for (int i = superblock.super.ninodeblocks + 1; i < superblock.super.nblocks; i++) {
         if (freemap[i] == 0) {
@@ -95,11 +95,19 @@ int get_free_block() {
 }
 
 // Zero out specified disk block
-void disk_bzero(int b) {
+static void disk_bzero(int b) {
     union fs_block block;
     disk_read(b, block.data);
     memset(block.data, 0, sizeof(union fs_block));
     disk_write(b, block.data);
+}
+
+static inline int mount_check() {
+    if (freemap == NULL) {
+        fprintf(stderr, "fs: disk not mounted\n");
+        return -1;
+    }
+    return 0;
 }
 
 void fs_debug() {
@@ -175,12 +183,12 @@ int fs_format() {
     return 1;
 }
 
-int fs_mount() {
+int fs_mount() {    
     // Read data from superblock
     disk_read(0, superblock.data);
 
     // Check if magic number is valid
-    if (superblock.super.magic != FS_MAGIC) {
+    if ((unsigned) superblock.super.magic != FS_MAGIC) {
         return 0;
     }
 
@@ -249,6 +257,8 @@ int fs_unmount() {
 }
 
 int fs_create() {
+    if (mount_check()) return -1;
+
     // Iterate through inode blocks and find first free inode
     for (int i = 1; i <= superblock.super.ninodeblocks; i++) {
         union fs_block block;
@@ -256,7 +266,7 @@ int fs_create() {
         // Iterate through all inodes in the data block
         for (int j = 0; j < INODES_PER_BLOCK; j++) {
             if (block.inode[j].isvalid == 0) {
-                memset(block.inode[j].direct, 0, sizeof(struct fs_inode));
+                memset(&block.inode[j], 0, sizeof(struct fs_inode));
                 block.inode[j].isvalid = 1;
                 disk_write(i, block.data);
                 freemap[i] = 1;
@@ -269,6 +279,8 @@ int fs_create() {
 }
 
 int fs_delete(int inumber) {
+    if (mount_check()) return 0;
+
     struct fs_inode inode;
     inode_load(inumber, &inode);
 
@@ -455,7 +467,7 @@ int fs_write(int inumber, const char *data, int length, int offset) {
 
     // Update inode
     if (offset + nbytes > inode.size) {
-        inode.size = offset + nbytes
+        inode.size = offset + nbytes;
     }
     inode_save(inumber, &inode);
     if (!direct_index) {
