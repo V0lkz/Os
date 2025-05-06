@@ -409,6 +409,7 @@ int fs_read(int inumber, char *data, int length, int offset) {
         nbytes += size;
         boffset = 0;
         index++;
+        PRINTF("index: %d, size %d, nbytes %d, length %d\n", index, size, nbytes, length);
     }
 
     return nbytes;
