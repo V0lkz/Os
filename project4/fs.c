@@ -57,6 +57,12 @@ static int *freemap = NULL;
 
 // Load inumber from disk into inode
 static void inode_load(int inumber, struct fs_inode *inode) {
+    // Check if inumber is within bounds
+    if (inumber < 0 || inumber >= superblock.super.ninodes) {
+        inode->isvalid = 0;
+        return;
+    }
+
     // Calculate disk block index and inode index
     int disk_index = (inumber / INODES_PER_BLOCK) + 1;
     int inode_index = inumber % INODES_PER_BLOCK;
@@ -322,6 +328,8 @@ int fs_delete(int inumber) {
 }
 
 int fs_getsize(int inumber) {
+    if (mount_check()) return -1;
+
     struct fs_inode inode;
     inode_load(inumber, &inode);
     return inode.isvalid ? inode.size : -1;
