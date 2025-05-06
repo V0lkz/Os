@@ -32,7 +32,7 @@ int fs_getsize(int inumber);
 
 // Read [offset, offset + length) bytes of the file specified by inumber into
 // the data buffer provided. The data buffer should be at least "length" long.
-// If offset is withing the bounds of the file but offset+length is off the end
+// If offset is within the bounds of the file but offset+length is off the end
 // of the file then only read to the end of the file
 // Returns bytes read (> 0) on success and 0 on failure
 int fs_read(int inumber, char *data, int length, int offset);
