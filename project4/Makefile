@@ -1,7 +1,11 @@
 GCC = /usr/bin/gcc
 CFLAGS = -Wall -Wextra
 
-.PHONY = lint clean
+.PHONY = debug lint clean
+
+ifdef DEBUG
+	CFLAGS += -DDEBUG
+endif
 
 simplefs: shell.o fs.o disk.o
 	$(GCC) $(CFLAGS) shell.o fs.o disk.o -o simplefs
@@ -14,6 +18,10 @@ fs.o: fs.c fs.h
 
 disk.o: disk.c disk.h
 	$(GCC) $(CFLAGS) disk.c -c -o disk.o -g
+
+debug: clean
+	clear
+	$(MAKE) simplefs DEBUG=1
 
 lint:
 	clang-format -i fs.c

@@ -2,12 +2,21 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "disk.h"
+
+#ifdef DEBUG
+#define PRINT(str) fprintf(stderr, str)
+#define PRINTF(fmt, ...) fprintf(stderr, fmt, __VA_ARGS__)
+#else
+#define PRINT(...)
+#define PRINTF(...)
+#endif
 
 #define FS_MAGIC 0xf0f03410
 #define INODES_PER_BLOCK 128
@@ -81,9 +90,7 @@ static void inode_save(int inumber, struct fs_inode *inode) {
 
     // Read disk block and extract inode
     union fs_block block;
-    fprintf(stderr, "is 1: %d\n", disk_index);
     disk_read(disk_index, block.data);
-
     block.inode[inode_index] = *inode;
 
     // Write block back to disk
@@ -99,6 +106,7 @@ static int get_free_block() {
             return i;
         }
     }
+    PRINT("fs: out of disk blocks\n");
     return -1;
 }
 
@@ -297,6 +305,7 @@ int fs_delete(int inumber) {
 
     // Check if inode is valid
     if (!inode.isvalid) {
+        PRINT("fs_delete: invalid inode\n");
         return 0;
     }
 
@@ -329,7 +338,7 @@ int fs_delete(int inumber) {
 
     // All data should have been cleared
     if (size > 0) {
-        fprintf(stderr, "fs: incomplete delete\n");
+        PRINT("fs_delete: incomplete\n");
         return 0;
     }
 
@@ -352,7 +361,8 @@ int fs_read(int inumber, char *data, int length, int offset) {
 
     // Check if inumber, offset, and length are within bounds
     if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
-        offset < 0 || length <= 0) {
+        offset < 0 || length < 0) {
+        PRINT("fs_read: invalid arguments\n");
         return 0;
     }
 
@@ -362,6 +372,7 @@ int fs_read(int inumber, char *data, int length, int offset) {
 
     // Check if inode is valid and offset within bounds
     if (!inode.isvalid || offset >= inode.size) {
+        PRINT("fs_read: invalid bounds\n");
         return 0;
     }
 
@@ -409,6 +420,7 @@ int fs_write(int inumber, const char *data, int length, int offset) {
     // Check if inumber, offset, and length are within bounds
     if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
         offset < 0 || length <= 0) {
+        PRINT("fs_write: invalid arguments\n");
         return 0;
     }
 
@@ -416,9 +428,11 @@ int fs_write(int inumber, const char *data, int length, int offset) {
     union fs_block indirect, temp;
     struct fs_inode inode;
     inode_load(inumber, &inode);
+    memset(temp.data, 0, sizeof(union fs_block));
 
     // Check if inode is valid
     if (!inode.isvalid) {
+        PRINT("fs_write: invalid inode\n");
         return 0;
     }
 
@@ -466,30 +480,26 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         }
         // Check if writing to an offset within a block
         if (boffset != 0) {
+            PRINTF("boffset %d\n", boffset);
             disk_read(data_arr[index], temp.data);
-            // memcpy(temp.data + boffset, data, size);
         }
         // Copy data into buffer and write to disk
-        disk_read(data_arr[index], temp.data);                        
-        memcpy(temp.data + boffset, data + nbytes, size);             
-        disk_write(data_arr[index], temp.data);         
+        memcpy(temp.data + boffset, data + nbytes, size);
+        disk_write(data_arr[index], temp.data);
         nbytes += size;
         boffset = 0;
         index++;
+        PRINTF("index: %d, size %d, nbytes %d, length %d\n", index, size, nbytes, length);
     }
 
     // Update inode
-    fprintf(stderr, "1\n");
     if (offset + nbytes > inode.size) {
         inode.size = offset + nbytes;
     }
-    fprintf(stderr, "2\n");
     inode_save(inumber, &inode);
-    fprintf(stderr, "3\n");
     if (!direct_index) {
         disk_write(inode.indirect, indirect.data);
     }
-    fprintf(stderr, "4\n");
 
     return nbytes;
 }
