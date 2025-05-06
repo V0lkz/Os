@@ -81,7 +81,9 @@ static void inode_save(int inumber, struct fs_inode *inode) {
 
     // Read disk block and extract inode
     union fs_block block;
+    fprintf(stderr, "is 1: %d\n", disk_index);
     disk_read(disk_index, block.data);
+
     block.inode[inode_index] = *inode;
 
     // Write block back to disk
@@ -432,7 +434,7 @@ int fs_write(int inumber, const char *data, int length, int offset) {
     int nbytes = 0;                            // nbytes written
 
     // Write data to disk until length is reached
-    while (nbytes < length) {
+    while (nbytes != length) {
         // Check if data should be written to indirect pointers
         if (index >= POINTERS_PER_INODE && direct_index) {
             // Check if there are indirect blocks
@@ -449,7 +451,6 @@ int fs_write(int inumber, const char *data, int length, int offset) {
             data_arr = indirect.pointers;
             direct_index = 0;
         }
-
         // Check if a new block should be allocated
         if (data_arr[index] == 0) {
             int b = get_free_block();
@@ -458,11 +459,6 @@ int fs_write(int inumber, const char *data, int length, int offset) {
             }
             data_arr[index] = b;
         }
-
-        // if (offset + nbytes >= inode.size) {
-        //     data_arr[index] = get_free_block();
-        // }
-
         // Calculate size in bytes to write to disk
         int size = length - nbytes;
         if (size > DISK_BLOCK_SIZE - boffset) {
@@ -471,23 +467,28 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         // Check if writing to an offset within a block
         if (boffset != 0) {
             disk_read(data_arr[index], temp.data);
-            memcpy(temp.data, data + boffset, size);
-            boffset = 0;
+            // memcpy(temp.data + boffset, data, size);
         }
-        // Write data to disk
-        disk_write(data_arr[index], data + nbytes);
+        // Copy data into buffer and write to disk
+        memcpy(temp.data + boffset, data + nbytes, size);
+        disk_write(data_arr[index], temp.data);
         nbytes += size;
+        boffset = 0;
         index++;
     }
 
     // Update inode
+    fprintf(stderr, "1\n");
     if (offset + nbytes > inode.size) {
         inode.size = offset + nbytes;
     }
+    fprintf(stderr, "2\n");
     inode_save(inumber, &inode);
+    fprintf(stderr, "3\n");
     if (!direct_index) {
         disk_write(inode.indirect, indirect.data);
     }
+    fprintf(stderr, "4\n");
 
     return nbytes;
 }

@@ -1,5 +1,5 @@
 GCC = /usr/bin/gcc
-CFLAGS = -Wall -Wextra -Werror
+CFLAGS = -Wall -Wextra
 
 .PHONY = lint clean
 
