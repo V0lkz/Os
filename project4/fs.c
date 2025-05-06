@@ -55,7 +55,7 @@ static int *freemap = NULL;
 
 /* Helper Functions */
 
-// Reads inumber from disk and copies into fs_inode pointed by inode
+// Load inumber from disk into inode
 void inode_load(int inumber, struct fs_inode *inode) {
     // Calculate disk block index and inode index
     int disk_index = (inumber / INODES_PER_BLOCK) + 1;
@@ -65,6 +65,21 @@ void inode_load(int inumber, struct fs_inode *inode) {
     union fs_block block;
     disk_read(disk_index, block.data);
     *inode = block.inode[inode_index];
+}
+
+// Save inumber and inode data to disk
+void inode_save(int inumber, struct fs_inode *inode) {
+    // Calculate disk block index and inode index
+    int disk_index = (inumber / INODES_PER_BLOCK) + 1;
+    int inode_index = inumber % INODES_PER_BLOCK;
+    
+    // Read disk block and extract inode
+    union fs_block block;
+    disk_read(disk_index, block.data);
+    block.inode[inode_index] = *inode;
+
+    // Write block back to disk
+    disk_write(disk_index, block.data);
 }
 
 void fs_debug() {
@@ -199,18 +214,14 @@ int fs_create() {
 }
 
 int fs_delete(int inumber) {
-    int disk_index = (inumber / INODES_PER_BLOCK) + 1;
-    int inode_index = inumber % INODES_PER_BLOCK;
+    struct fs_inode inode;
+    inode_load(inumber, &inode);
 
-    union fs_block block;
-    disk_read(disk_index, block.data);
-    struct fs_inode *inode = &block.inode[inode_index];
-
-    int size = inode->size;
+    int size = inode.size;
 
     // Iterate through direct pointers
     for (int i = 0; i < POINTERS_PER_INODE && size > 0; i++) {
-        int b = inode->direct[i];
+        int b = inode.direct[i];
         if (b != 0) {
             freemap[b] = 0;
         }
@@ -218,12 +229,13 @@ int fs_delete(int inumber) {
     }
 
     // Read indirect block from disk
-    union fs_block indirects;
-    disk_read(inode->indirect, &indirects);
+    union fs_block indirect;
+    disk_read(inode.indirect, &indirect);
+    freemap[inode.indirect] = 0;
 
     // Iterate through indirect pointers
     for (int i = 0; i < POINTERS_PER_BLOCK && size > 0; i++) {
-        int b = indirects.pointers[i];
+        int b = indirect.pointers[i];
         if (b != 0) {
             freemap[b] = 0;
         }
@@ -236,8 +248,8 @@ int fs_delete(int inumber) {
     }
 
     // Clear inode block and write to disk
-    memset(inode, 0, sizeof(struct fs_inode));
-    disk_write(disk_index, block.data);
+    memset(&inode, 0, sizeof(struct fs_inode));
+    inode_save(inumber, &inode);
 
     return 1;
 }
