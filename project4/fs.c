@@ -470,8 +470,9 @@ int fs_write(int inumber, const char *data, int length, int offset) {
             // memcpy(temp.data + boffset, data, size);
         }
         // Copy data into buffer and write to disk
-        memcpy(temp.data + boffset, data + nbytes, size);
-        disk_write(data_arr[index], temp.data);
+        disk_read(data_arr[index], temp.data);                        
+        memcpy(temp.data + boffset, data + nbytes, size);             
+        disk_write(data_arr[index], temp.data);         
         nbytes += size;
         boffset = 0;
         index++;
