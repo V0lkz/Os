@@ -260,13 +260,13 @@ int fs_unmount() {
     if (freemap != NULL) {
         free(freemap);
         freemap = NULL;
+        return 1;
     }
-    return 1;
+    return 0;
 }
 
 int fs_create() {
-    if (mount_check())
-        return -1;
+    if (mount_check()) return -1;
 
     // Iterate through inode blocks and find first free inode
     for (int i = 1; i <= superblock.super.ninodeblocks; i++) {
@@ -288,8 +288,7 @@ int fs_create() {
 }
 
 int fs_delete(int inumber) {
-    if (mount_check())
-        return 0;
+    if (mount_check()) return 0;
 
     struct fs_inode inode;
     inode_load(inumber, &inode);
@@ -339,8 +338,7 @@ int fs_delete(int inumber) {
 }
 
 int fs_getsize(int inumber) {
-    if (mount_check())
-        return -1;
+    if (mount_check()) return -1;
 
     struct fs_inode inode;
     inode_load(inumber, &inode);
@@ -348,11 +346,11 @@ int fs_getsize(int inumber) {
 }
 
 int fs_read(int inumber, char *data, int length, int offset) {
-    if (mount_check())
-        return 0;
+    if (mount_check()) return 0;
 
-    // Check if inumber and offset are within bounds
-    if (inumber >= superblock.super.ninodes || offset >= MAX_FILE_SIZE || length <= 0) {
+    // Check if inumber, offset, and length are within bounds
+    if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
+        offset < 0 || length <= 0) {
         return 0;
     }
 
@@ -390,11 +388,11 @@ int fs_read(int inumber, char *data, int length, int offset) {
         disk_read(data_arr[index], data_block.data);
         // Calculate size in bytes to copy into data buffer
         int size = length - nbytes;
-        if (size > DISK_BLOCK_SIZE) {
-            size = DISK_BLOCK_SIZE;
+        if (size > DISK_BLOCK_SIZE - boffset) {
+            size = DISK_BLOCK_SIZE - boffset;
         }
         // Copy data into buffer
-        memcpy(data + nbytes, data_block.data + boffset, size - boffset);    // Fix
+        memcpy(data + nbytes, data_block.data + boffset, size);
         nbytes += size;
         boffset = 0;
         index++;
@@ -404,8 +402,7 @@ int fs_read(int inumber, char *data, int length, int offset) {
 }
 
 int fs_write(int inumber, const char *data, int length, int offset) {
-    if (mount_check())
-        return 0;
+    if (mount_check()) return 0;
 
     // Check if inumber, offset, and length are within bounds
     if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
@@ -473,9 +470,6 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         }
         // Check if writing to an offset within a block
         if (boffset != 0) {
-            if (DISK_BLOCK_SIZE - boffset < size) {
-                size = DISK_BLOCK_SIZE - boffset;
-            }
             disk_read(data_arr[index], temp.data);
             memcpy(temp.data, data + boffset, size);
             boffset = 0;
