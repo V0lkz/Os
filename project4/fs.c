@@ -193,18 +193,39 @@ int fs_delete(int inumber) {
     disk_read(disk_index, block.data);
     struct fs_inode *inode = &block.inode[inode_index];
 
-    if (inode->isvalid) {
-        for (int i = 0; i < size; i++)
+    int size = inode->size;
+
+    // Iterate through direct pointers
+    for (int i = 0; i < POINTERS_PER_INODE && size > 0; i++) {
+        int b = inode->direct[i];
+        if (b != 0) {
+            freemap[b] = 0;
+        }
+        size -= DISK_BLOCK_SIZE;
+    }
+    
+    // Read indirect block from disk
+    union fs_block indirects;
+    disk_read(inode->indirect, &indirects);
+
+    // Iterate through indirect pointers
+    for (int i = 0; i < POINTERS_PER_BLOCK && size > 0; i++) {
+        int b = indirects.pointers[i];
+        if (b != 0) {
+            freemap[b] = 0;
+        }
+        size -= DISK_BLOCK_SIZE;
     }
 
-    // int isvalid;                       // 1 if valid (in use), 0 otherwise
-    // int size;                          // Size of file in bytes
-    // int direct[POINTERS_PER_INODE];    // Direct data block numbers (0 if invalid)
-    // int indirect;                      // Indirect data block number (0 if invalid)
-
+    // All data should have been cleared
+    if (size > 0) {
+        return 0;
+    }
+    
     // Clear inode block and write to disk
     memset(inode, 0, sizeof(struct fs_inode));
     disk_write(disk_index, block.data);
+
     return 1;
 }
 
