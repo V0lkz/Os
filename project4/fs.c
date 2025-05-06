@@ -290,6 +290,11 @@ int fs_delete(int inumber) {
     struct fs_inode inode;
     inode_load(inumber, &inode);
 
+    // Check if inode is valid
+    if (!inode.isvalid) {
+        return 0;
+    }
+
     int size = inode.size;
 
     // Iterate through direct pointers
@@ -317,6 +322,7 @@ int fs_delete(int inumber) {
 
     // All data should have been cleared
     if (size > 0) {
+        fprintf(stderr, "fs: incomplete delete\n");
         return 0;
     }
 
@@ -336,6 +342,8 @@ int fs_getsize(int inumber) {
 }
 
 int fs_read(int inumber, char *data, int length, int offset) {
+    if (mount_check()) return 0;
+
     // Check if inumber and offset are within bounds
     if (inumber >= superblock.super.ninodes || offset >= MAX_FILE_SIZE || length <= 0) {
         return 0;
@@ -389,6 +397,8 @@ int fs_read(int inumber, char *data, int length, int offset) {
 }
 
 int fs_write(int inumber, const char *data, int length, int offset) {
+    if (mount_check()) return 0;
+
     // Check if inumber, offset, and length are within bounds
     if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
         offset < 0 || length <= 0) {
