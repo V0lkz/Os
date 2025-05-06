@@ -119,41 +119,42 @@ static inline int mount_check() {
 void fs_debug() {
     union fs_block block;
     struct fs_superblock sb;
- 
+
     disk_read(0, block.data);
     sb = block.super;
-   
+
     printf("superblock:\n");
     printf("    %d blocks\n", sb.nblocks);
     printf("    %d inode blocks\n", sb.ninodeblocks);
     printf("    %d inodes\n", sb.ninodes);
- 
+
     for (int i = 1; i <= sb.ninodeblocks; i++) {
         disk_read(i, block.data);
-        //scan each inode within the block
+        // scan each inode within the block
         for (int j = 0; j < INODES_PER_BLOCK; j++) {
             struct fs_inode *inode = &block.inode[j];
- 
-            //if the inode is invalid continue
-            if (!inode->isvalid) continue;
- 
+
+            // if the inode is invalid continue
+            if (!inode->isvalid)
+                continue;
+
             int inumber = (i - 1) * INODES_PER_BLOCK + j;
             printf("inode %d:\n", inumber);
             printf("    size: %d bytes\n", inode->size);
             printf("    direct blocks:");
- 
+
             for (int k = 0; k < POINTERS_PER_INODE; k++) {
                 if (inode->direct[k] != 0) {
                     printf(" %d", inode->direct[k]);
                 }
             }
             printf("\n");
- 
+
             if (inode->indirect != 0) {
                 printf("    indirect block: %d\n", inode->indirect);
                 union fs_block indirect_block;
                 disk_read(inode->indirect, indirect_block.data);
- 
+
                 printf("    indirect data blocks:");
                 for (int k = 0; k < POINTERS_PER_BLOCK; k++) {
                     if (indirect_block.pointers[k] != 0) {
@@ -164,9 +165,8 @@ void fs_debug() {
             }
         }
     }
- }
- 
- 
+}
+
 int fs_format() {
     const int nblocks = disk_size();
     const int ninodeblocks = NUM_INODE_BLOCKS(nblocks);
@@ -191,7 +191,7 @@ int fs_format() {
     return 1;
 }
 
-int fs_mount() {    
+int fs_mount() {
     // Read data from superblock
     disk_read(0, superblock.data);
 
@@ -265,7 +265,8 @@ int fs_unmount() {
 }
 
 int fs_create() {
-    if (mount_check()) return -1;
+    if (mount_check())
+        return -1;
 
     // Iterate through inode blocks and find first free inode
     for (int i = 1; i <= superblock.super.ninodeblocks; i++) {
@@ -287,7 +288,8 @@ int fs_create() {
 }
 
 int fs_delete(int inumber) {
-    if (mount_check()) return 0;
+    if (mount_check())
+        return 0;
 
     struct fs_inode inode;
     inode_load(inumber, &inode);
@@ -308,7 +310,6 @@ int fs_delete(int inumber) {
         size -= DISK_BLOCK_SIZE;
     }
 
-    
     // Read indirect block from disk
     if (inode.indirect != 0) {
         union fs_block indirect;
@@ -323,7 +324,7 @@ int fs_delete(int inumber) {
             }
             size -= DISK_BLOCK_SIZE;
         }
-    }   
+    }
 
     // All data should have been cleared
     if (size > 0) {
@@ -338,7 +339,8 @@ int fs_delete(int inumber) {
 }
 
 int fs_getsize(int inumber) {
-    if (mount_check()) return -1;
+    if (mount_check())
+        return -1;
 
     struct fs_inode inode;
     inode_load(inumber, &inode);
@@ -346,7 +348,8 @@ int fs_getsize(int inumber) {
 }
 
 int fs_read(int inumber, char *data, int length, int offset) {
-    if (mount_check()) return 0;
+    if (mount_check())
+        return 0;
 
     // Check if inumber and offset are within bounds
     if (inumber >= superblock.super.ninodes || offset >= MAX_FILE_SIZE || length <= 0) {
@@ -401,7 +404,8 @@ int fs_read(int inumber, char *data, int length, int offset) {
 }
 
 int fs_write(int inumber, const char *data, int length, int offset) {
-    if (mount_check()) return 0;
+    if (mount_check())
+        return 0;
 
     // Check if inumber, offset, and length are within bounds
     if (inumber >= superblock.super.ninodes || inumber < 0 || offset >= MAX_FILE_SIZE ||
