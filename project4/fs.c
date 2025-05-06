@@ -53,6 +53,20 @@ static union fs_block superblock;
  */
 static int *freemap = NULL;
 
+/* Helper Functions */
+
+// Reads inumber from disk and copies into fs_inode pointed by inode
+void inode_load(int inumber, struct fs_inode *inode) {
+    // Calculate disk block index and inode index
+    int disk_index = (inumber / INODES_PER_BLOCK) + 1;
+    int inode_index = inumber % INODES_PER_BLOCK;
+    
+    // Read disk block and extract inode
+    union fs_block block;
+    disk_read(disk_index, block.data);
+    *inode = block.inode[inode_index];
+}
+
 void fs_debug() {
     union fs_block block;
 
@@ -69,8 +83,7 @@ int fs_format() {
     const int ninodeblocks = NUM_INODE_BLOCKS(nblocks);
     const int ninodes = ninodeblocks * INODES_PER_BLOCK;
 
-    // Empty and write the new superblock
-    memset(&superblock, 0, sizeof(union fs_block));
+    // Write the new superblock
     superblock.super.magic = FS_MAGIC;
     superblock.super.ninodeblocks = ninodeblocks;
     superblock.super.ninodes = ninodes;
@@ -162,7 +175,7 @@ int fs_mount() {
 int fs_unmount() {
     if (freemap != NULL) {
         free(freemap);
-        freemap == NULL;
+        freemap = NULL;
     }
     return 1;
 }
