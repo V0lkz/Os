@@ -204,16 +204,21 @@ int fs_unmount() {
 
 int fs_create() {
     // Iterate through inode blocks and find first free inode
-    for (int i = 1; i < superblock.super.ninodeblocks; i++) {
+    for (int i = 1; i <= superblock.super.ninodeblocks; i++) {
         union fs_block block;
         disk_read(i, block.data);
         // Iterate through all inodes in the data block
         for (int j = 0; j < INODES_PER_BLOCK; j++) {
             if (block.inode[j].isvalid == 0) {
+                block.inode[j].isvalid = 1; 
                 block.inode[j].size = 0;
+                memset(block.inode[j].direct, 0, sizeof(block.inode[j].direct));
+                block.inode[j].indirect = 0; 
                 disk_write(i, block.data);
                 freemap[i] = 1;
-                return j;
+                
+                //returns the inode number
+                return (i - 1) * INODES_PER_BLOCK + j;
             }
         }
     }
@@ -374,6 +379,11 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         disk_write(data_arr[index], data + nbytes);
         nbytes += size;
         index++;
+
+        //update file size
+        if (offset + nbytes > inode.size) {
+            inode.size = offset + nbytes;
+        }
     }
 
     // Update inode
