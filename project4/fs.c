@@ -14,6 +14,8 @@
 #define POINTERS_PER_INODE 5
 #define POINTERS_PER_BLOCK 1024
 
+#define MAX_FILE_SIZE ((POINTERS_PER_INODE + POINTERS_PER_BLOCK) * DISK_BLOCK_SIZE)
+
 // Returns the number of dedicated inode blocks given the disk size in blocks
 #define NUM_INODE_BLOCKS(disk_size_in_blocks) (1 + (disk_size_in_blocks / 10))
 
@@ -245,8 +247,55 @@ int fs_getsize(int inumber) {
 }
 
 int fs_read(int inumber, char *data, int length, int offset) {
-    
-    return 0;
+    // Check if inumber and offset are within bounds
+    if (inumber >= superblock.inode || offset >= MAX_FILE_SIZE || length <= 0) {
+        return 0;
+    }
+
+    int disk_index = (inumber / INODES_PER_BLOCK) + 1;
+    int inode_index = inumber % INODES_PER_BLOCK;
+
+    union fs_block block;
+    disk_read(disk_index, block.data);
+    struct fs_inode *inode = &block.inode[inode_index];
+
+    // Check if offset in bounds to reduce unnecessary reads
+    if (offset >= inode->size) {
+        return 0;
+    }
+
+    // Adjust length if not within bounds of the file
+    if (offset + length > inode->size) {
+        length = inode->size - offset;
+    }
+
+    int index = offset / DISK_BLOCK_SIZE;
+    int *data_ptr = inode->direct;    // Pointer to array of disk blocks
+    int direct_index = 1;             // Indirect index or direct index
+    int nbytes = 0;                   // nbytes read
+
+    // Read data from disk until length is reached
+    while (nbytes != length) {
+        // Check if data should be read from indirect pointers
+        if (index >= POINTERS_PER_INODE && direct_index) {
+            disk_read(inode->indirect, block.data);
+            index -= POINTERS_PER_INODE;
+            data_ptr = block.data;
+            direct_index = 0;    // Index is now for indirect blocks
+        }
+        // Read data block and copy into data buffer
+        union fs_block data_block;
+        disk_read(data_ptr[index], data_block.data);
+        int size = length - nbytes;
+        if (size >= DISK_BLOCK_SIZE) {
+            size = DISK_BLOCK_SIZE;
+        }
+        memcpy(data[nbytes], data_block.data, size);
+        nbytes += size;
+        index++;
+    }
+
+    return nbytes;
 }
 
 int fs_write(int inumber, const char *data, int length, int offset) {
