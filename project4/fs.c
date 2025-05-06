@@ -113,7 +113,7 @@ int fs_mount() {
     // Set superblock and inode blocks as free
     freemap[0] = 1;
     for (int i = 1; i <= superblock.super.ninodeblocks; i++) {
-        freemap[i] = 0; 
+        freemap[i] = 0;
     }
 
     // Scan through all inodes
@@ -127,7 +127,9 @@ int fs_mount() {
         struct fs_inode *inode = &block.inode[inode_index];
 
         // If inode is in unused move to next index
-        if (!inode->isvalid) continue;
+        if (!inode->isvalid) {
+            continue;
+        }
 
         // Iterate through direct data block and mark block as used in freemap
         for (int j = 0; j < POINTERS_PER_INODE; j++) {
@@ -158,6 +160,7 @@ int fs_mount() {
 int fs_unmount() {
     if (freemap != NULL) {
         free(freemap);
+        freemap == NULL;
     }
     return 1;
 }
@@ -169,7 +172,7 @@ int fs_create() {
             // Get disk and inode block index
             int disk_idx = (i / INODES_PER_BLOCK) + 1;
             int inode_idx = i % INODES_PER_BLOCK;
-            // Read inode block from disk 
+            // Read inode block from disk
             union fs_block block;
             disk_read(disk_idx, block.data);
             // Update inode
@@ -203,7 +206,7 @@ int fs_delete(int inumber) {
         }
         size -= DISK_BLOCK_SIZE;
     }
-    
+
     // Read indirect block from disk
     union fs_block indirects;
     disk_read(inode->indirect, &indirects);
@@ -221,7 +224,7 @@ int fs_delete(int inumber) {
     if (size > 0) {
         return 0;
     }
-    
+
     // Clear inode block and write to disk
     memset(inode, 0, sizeof(struct fs_inode));
     disk_write(disk_index, block.data);
