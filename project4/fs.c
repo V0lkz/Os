@@ -237,7 +237,7 @@ int fs_delete(int inumber) {
 
     // Read indirect block from disk
     union fs_block indirect;
-    disk_read(inode.indirect, &indirect);
+    disk_read(inode.indirect, indirect.data);
     freemap[inode.indirect] = 0;
 
     // Iterate through indirect pointers
@@ -287,11 +287,11 @@ int fs_read(int inumber, char *data, int length, int offset) {
         length = inode.size - offset;
     }
 
-    int index = offset / DISK_BLOCK_SIZE;
-    int boffset = offset % DISK_BLOCK_SIZE;
-    int *data_ptr = inode.direct;    // Pointer to array of disk blocks
-    int direct_index = 1;            // Indirect index or direct index
-    int nbytes = 0;                  // nbytes read
+    int index = offset / DISK_BLOCK_SIZE;      // Index of data block
+    int boffset = offset % DISK_BLOCK_SIZE;    // Offset within a data block
+    int *data_arr = inode.direct;              // Pointer to array of data blocks
+    int direct_index = 1;                      // 1 if direct index, 0 if indirect index
+    int nbytes = 0;                            // nbytes read
 
     // Read data from disk until length is reached
     while (nbytes != length) {
@@ -299,17 +299,19 @@ int fs_read(int inumber, char *data, int length, int offset) {
         if (index >= POINTERS_PER_INODE && direct_index) {
             disk_read(inode.indirect, block.data);
             index -= POINTERS_PER_INODE;
-            data_ptr = block.data;
+            data_arr = block.pointers;
             direct_index = 0;    // Index is now for indirect blocks
         }
-        // Read data block and copy into data buffer
+        // Read data block from disk
         union fs_block data_block;
-        disk_read(data_ptr[index], data_block.data);
+        disk_read(data_arr[index], data_block.data);
+        // Calculate size in bytes to copy into data buffer
         int size = length - nbytes;
         if (size > DISK_BLOCK_SIZE) {
             size = DISK_BLOCK_SIZE;
         }
-        memcpy(data + nbytes, data_block.data + boffset, size - boffset);
+        // Copy data into buffer
+        memcpy(data + nbytes, data_block.data + boffset, size - boffset);    // Fix
         nbytes += size;
         boffset = 0;
         index++;
@@ -347,7 +349,7 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         if (index >= POINTERS_PER_INODE && direct_index) {
             disk_read(inode.indirect, indirect.data);
             index -= POINTERS_PER_INODE;
-            data_arr = indirect.data;
+            data_arr = indirect.pointers;
             direct_index = 0;
         }
         // Check if a new block should be allocated
@@ -361,7 +363,9 @@ int fs_write(int inumber, const char *data, int length, int offset) {
         }
         // Check if writing to an offset within a block
         if (boffset != 0) {
-            size = DISK_BLOCK_SIZE - boffset;
+            if (DISK_BLOCK_SIZE - boffset < size) {
+                size = DISK_BLOCK_SIZE - boffset;
+            }
             disk_read(data_arr[index], temp.data);
             memcpy(temp.data, data + boffset, size);
             boffset = 0;
