@@ -20,7 +20,6 @@ disk.o: disk.c disk.h
 	$(GCC) $(CFLAGS) disk.c -c -o disk.o -g
 
 debug: clean
-	clear
 	$(MAKE) simplefs DEBUG=1
 
 lint:

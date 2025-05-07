@@ -370,9 +370,14 @@ int fs_read(int inumber, char *data, int length, int offset) {
     struct fs_inode inode;
     inode_load(inumber, &inode);
 
-    // Check if inode is valid and offset within bounds
-    if (!inode.isvalid || offset >= inode.size) {
+    // Check if inode is valid
+    if (!inode.isvalid) {
         PRINT("fs_read: invalid bounds\n");
+        return 0;
+    }
+    
+    // Check if offset is within bounds
+    if (offset >= inode.size) {
         return 0;
     }
 
